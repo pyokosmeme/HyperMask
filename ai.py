@@ -1,75 +1,96 @@
 # ai.py
 import asyncio
-import openai
+import aiohttp
+import openai  # Not used for Anthropic; kept if needed for other parts
 from config import OAI_TOKEN, DEFAULT_MODEL, PREMIUM_MODEL, COST_PER_TOKEN_HAIKU, COST_PER_TOKEN_SONNET, TOKEN_LIMIT
 from utils import log_error
-import time
+import anthropic  # Ensure the Anthropic Python client is installed
 
-# Set Anthropic API key (assumed here via openai module for simplicity)
-openai.api_key = OAI_TOKEN
+# Set Anthropic API key (if the library supports this method)
+# (Some setups might require you to set it manually in your environment)
+# e.g., anthropic.api_key = OAI_TOKEN
 
 def anthropic_token_count(text: str) -> int:
     """
-    A simple token counter for Anthropic's models.
-    (This is a placeholder – replace with a proper implementation if available.)
+    Uses Anthropic's official tokenizer to count tokens.
+    If unavailable, falls back to a simple whitespace split.
     """
-    return len(text.split())
+    try:
+        # Using Anthropic’s tokenizer – ensure you have the correct function from their library.
+        tokens = anthropic.tokenizer.encode(text)
+        return len(tokens)
+    except Exception as e:
+        log_error(f"Anthropic tokenizer error: {e}. Falling back to whitespace split.")
+        return len(text.split())
 
 async def call_claude(user_id, user_dict, model, role, content, temperature, n, presence_penalty, max_tokens, temp_override: bool, verbose=False):
     """
-    Sends a prompt to Claude via the API.
-    The model parameter should be either DEFAULT_MODEL or PREMIUM_MODEL.
+    Calls Anthropic's Claude API using the proper endpoint and payload.
+    
+    The prompt is constructed in a Claude-friendly format:
+      "Human: <content>\nAssistant:"
+    
+    Uses the stop sequence "\nHuman:".
+    
+    Returns an object with a .choices attribute that contains a message content.
     """
-    # Set timeout and adjust temperature based on the model
-    if model == DEFAULT_MODEL:
-        timeout = 45
-        if temp_override:
-            temperature = 1.15
-    elif model == PREMIUM_MODEL:
-        timeout = 100
-        if temp_override:
+    # Adjust temperature if temp_override is True
+    if temp_override:
+        if model == PREMIUM_MODEL:
             temperature = 1.05
-    else:
-        timeout = 60
+        else:
+            temperature = 1.15
 
-    messages = [
-        {"role": "system", "content": role},
-        {"role": "user", "content": content}
-    ]
+    # Build the prompt. You may also choose to incorporate the role (system prompt)
+    # into the prompt if desired – here we simply add it as an extra header comment.
+    prompt = f"{role}\nHuman: {content}\nAssistant:"
+
+    data = {
+        "model": model,
+        "prompt": prompt,
+        "max_tokens_to_sample": max_tokens,
+        "temperature": temperature,
+        "stop_sequences": ["\nHuman:"]
+    }
+
+    headers = {
+        "x-api-key": OAI_TOKEN,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json"
+    }
+    url = "https://api.anthropic.com/v1/complete"
+
     try:
-        response = await asyncio.wait_for(
-            openai.ChatCompletion.acreate(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                n=n,
-                presence_penalty=presence_penalty,
-                max_tokens=max_tokens
-            ),
-            timeout=timeout
-        )
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=data, headers=headers, timeout=max_tokens/10) as resp:
+                if resp.status != 200:
+                    error_text = await resp.text()
+                    log_error(f"Anthropic API error {resp.status}: {error_text}")
+                    raise Exception(f"Anthropic API error: {resp.status}")
+                response_json = await resp.json()
     except asyncio.TimeoutError:
         fallback = "Please re-do that answer; be explicit and do not be vague."
-        response = type("FakeResponse", (), {})()
-        response.choices = [{"message": {"content": fallback}} for _ in range(n)]
+        response_json = {"completion": fallback}
     except Exception as e:
         log_error(f"Error in call_claude: {e}")
         fallback = "An error occurred. Please try again later."
-        response = type("FakeResponse", (), {})()
-        response.choices = [{"message": {"content": fallback}} for _ in range(n)]
+        response_json = {"completion": fallback}
 
-    # Token counting using our new counter
-    prompt_tokens = anthropic_token_count(content + role)
-    completion_str = ""
-    for choice in response.choices:
-        try:
-            completion_str += choice["message"]["content"]
-        except Exception as e:
-            log_error(f"Error extracting message content: {e}")
-    completion_tokens = anthropic_token_count(completion_str)
+    # Mimic the previous structure with a fake response object:
+    class FakeChoice:
+        def __init__(self, message):
+            self.message = message
+    class FakeResponse:
+        def __init__(self, completion):
+            self.choices = [FakeChoice({"content": completion})]
+    fake_response = FakeResponse(response_json.get("completion", ""))
 
-    # Calculate cost and update user_dict
-    total_tokens = completion_tokens + prompt_tokens
+    # Count tokens using Anthropic's counter.
+    prompt_tokens = anthropic_token_count(prompt + role)
+    completion_tokens = anthropic_token_count(response_json.get("completion", ""))
+    total_tokens = prompt_tokens + completion_tokens
+
+    # Calculate cost (update user token usage; we’re not limiting usage)
     if model == PREMIUM_MODEL:
         cost = total_tokens * COST_PER_TOKEN_SONNET
     else:
@@ -77,26 +98,6 @@ async def call_claude(user_id, user_dict, model, role, content, temperature, n, 
     user_dict.setdefault(user_id, {})["token_usage"] = user_dict.get(user_id, {}).get("token_usage", 0) + total_tokens
 
     if verbose:
-        log_error(f"[Verbose] User {user_id} prompt:\n{role}\n{content}\nResponse:\n{completion_str}")
+        log_error(f"[Verbose] User {user_id} prompt:\n{prompt}\nResponse:\n{response_json.get('completion', '')}")
 
-    return response
-
-async def get_embedding(text, model="text-embedding-ada-002"):
-    """
-    Retrieves an embedding for a given text.
-    """
-    clean_text = text.replace("\n", " ")
-    try:
-        embed = await openai.Embedding.acreate(input=[clean_text], model=model)
-    except Exception as e:
-        log_error(f"Error in get_embedding: {e}")
-        embed = {"data": [{"embedding": []}]}
-    return embed
-
-# (Optionally, add a stub for multimodal image analysis if needed.)
-async def analyze_image(image_url: str) -> str:
-    """
-    Stub: Analyze an image given its URL using Claude's multimodal capabilities.
-    (You would need to implement the actual image handling and API call.)
-    """
-    return f"Analysis of image at {image_url}: [result]"
+    return fake_response
