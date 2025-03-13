@@ -1,13 +1,11 @@
 # ai.py
 import asyncio
 import aiohttp
-import openai  # Not used for Anthropic; kept if needed for other parts
-from config import OAI_TOKEN, DEFAULT_MODEL, PREMIUM_MODEL, COST_PER_TOKEN_HAIKU, COST_PER_TOKEN_SONNET, TOKEN_LIMIT
+import anthropic  # Ensure you have the Anthropic Python client installed
+from config import OAI_TOKEN, DEFAULT_MODEL, PREMIUM_MODEL, COST_PER_TOKEN_HAIKU, COST_PER_TOKEN_SONNET, TOKEN_LIMIT, DEFAULT_NAME
 from utils import log_error
-import anthropic  # Ensure the Anthropic Python client is installed
 
-# Set Anthropic API key (if the library supports this method)
-# (Some setups might require you to set it manually in your environment)
+# Set Anthropic API key if needed (depends on the client library's setup)
 # e.g., anthropic.api_key = OAI_TOKEN
 
 def anthropic_token_count(text: str) -> int:
@@ -16,7 +14,6 @@ def anthropic_token_count(text: str) -> int:
     If unavailable, falls back to a simple whitespace split.
     """
     try:
-        # Using Anthropic’s tokenizer – ensure you have the correct function from their library.
         tokens = anthropic.tokenizer.encode(text)
         return len(tokens)
     except Exception as e:
@@ -28,29 +25,23 @@ async def call_claude(user_id, user_dict, model, role, content, temperature, n, 
     Calls Anthropic's Claude API using the proper endpoint and payload.
     
     The prompt is constructed in a Claude-friendly format:
-      "Human: <content>\nAssistant:"
-    
-    Uses the stop sequence "\nHuman:".
-    
-    Returns an object with a .choices attribute that contains a message content.
+      "<role prompt>\nSenpai: <content>\n<AssistantName>:"
+    and uses stop sequence "\nSenpai:".
     """
-    # Adjust temperature if temp_override is True
+    # Adjust temperature if needed.
     if temp_override:
-        if model == PREMIUM_MODEL:
-            temperature = 1.05
-        else:
-            temperature = 1.15
+        temperature = 1.05 if model == PREMIUM_MODEL else 1.15
 
-    # Build the prompt. You may also choose to incorporate the role (system prompt)
-    # into the prompt if desired – here we simply add it as an extra header comment.
-    prompt = f"{role}\nHuman: {content}\nAssistant:"
-
+    # Construct the prompt using the desired format.
+    # 'role' contains our system prompt (personality details).
+    prompt = f"{role}\nSenpai: {content}\n{DEFAULT_NAME}:"
+    
     data = {
         "model": model,
         "prompt": prompt,
         "max_tokens_to_sample": max_tokens,
         "temperature": temperature,
-        "stop_sequences": ["\nHuman:"]
+        "stop_sequences": ["\nSenpai:"]
     }
 
     headers = {
@@ -76,7 +67,7 @@ async def call_claude(user_id, user_dict, model, role, content, temperature, n, 
         fallback = "An error occurred. Please try again later."
         response_json = {"completion": fallback}
 
-    # Mimic the previous structure with a fake response object:
+    # Wrap the response in an object similar to the previous structure.
     class FakeChoice:
         def __init__(self, message):
             self.message = message
@@ -85,12 +76,12 @@ async def call_claude(user_id, user_dict, model, role, content, temperature, n, 
             self.choices = [FakeChoice({"content": completion})]
     fake_response = FakeResponse(response_json.get("completion", ""))
 
-    # Count tokens using Anthropic's counter.
+    # Count tokens using Anthropic's token counter.
     prompt_tokens = anthropic_token_count(prompt + role)
     completion_tokens = anthropic_token_count(response_json.get("completion", ""))
     total_tokens = prompt_tokens + completion_tokens
 
-    # Calculate cost (update user token usage; we’re not limiting usage)
+    # Calculate cost and update user token usage.
     if model == PREMIUM_MODEL:
         cost = total_tokens * COST_PER_TOKEN_SONNET
     else:
