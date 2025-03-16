@@ -125,9 +125,7 @@ In addition to the slash commands, the bot listens for specific commands in the 
    default_name="DUMMY_BOT_NAME"
    description="DUMMY_DESCRIPTION: Placeholder description of the bot's persona."
    log_channel="DUMMY_LOG_CHANNEL"
-   xip="DUMMY_XIP"
    ROLE_IDS='{"1": "DUMMY_ROLE_ID_1", "2": "DUMMY_ROLE_ID_2", "3": "DUMMY_ROLE_ID_3", "4": "DUMMY_ROLE_ID_4"}'
-   catgirl_appreciator="DUMMY_CATGIRL_APPRECIATOR_ID"
 
    core_prompt="CORE_PROMPT_PLACEHOLDER: [Explanation: Defines the bot's character, personality, and roleplaying guidelines with example responses.]"
    summarization_prompt="SUMMARIZATION_PROMPT_PLACEHOLDER: [Explanation: Instructs the bot to summarize conversation details focusing on key points and context.]"
