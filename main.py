@@ -159,7 +159,7 @@ async def on_ready():
         member = guild.get_member(bot.user.id)
         if member:
             try:
-                await member.edit(nick=f{DEFAULT_NAME})
+                await member.edit(nick=f"{DEFAULT_NAME}")
             except Exception as e:
                 log_error(f"Failed to update nickname in guild {guild.id}: {e}")
 
