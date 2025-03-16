@@ -3,7 +3,7 @@ import os
 import json
 from dotenv import load_dotenv
 
-load_dotenv("theia.env")
+load_dotenv("config.env")
 
 # Use a valid Anthropic API key. If you set your environment variable as ANTHROPIC_API_KEY,
 # you can have the client auto-detect it; otherwise, we pass it explicitly.
@@ -34,3 +34,5 @@ CORE_MEMORY_DUMP_PROMPT = os.environ.get("core_memory_dump", "Update core memori
 
 ENABLE_CORE_MEMORY_PICKLE_LOG = True  # Toggle for logging core memories.
 CORE_MEMORY_PICKLE_DIR = "./"         # Directory to save the pickle files.
+
+ENABLE_API_CALL_LOGGING = False  # Set to True to enable logging, False to disable
