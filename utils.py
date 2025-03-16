@@ -1,11 +1,10 @@
-# utils.py
+import logging
 import discord
 import asyncio
-import logging
 
 # Setup basic logging
-logger = logging.getLogger("CatgirlGPT")
-logger.setLevel(logging.INFO)
+logger = logging.getLogger("Claude's Mask")
+logger.setLevel(logging.DEBUG)  # Set to DEBUG to capture detailed logs
 handler = logging.StreamHandler()
 formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s")
 handler.setFormatter(formatter)

@@ -1,90 +1,122 @@
-# memory.py
-import json
+import os
 import pickle
-from ai import anthropic_token_count
+import time
+from config import (
+    CORE_MEMORY_PROMPT,
+    CORE_MEMORY_DUMP_PROMPT,  # New: additional prompt when core memories get too long.
+    PREMIUM_MODEL,
+    DEFAULT_MODEL,
+    SUMMARIZATION_PROMPT,
+    ENABLE_CORE_MEMORY_PICKLE_LOG,  # New: toggle for logging core memories.
+    CORE_MEMORY_PICKLE_DIR  # New: directory path for pickle dumps.
+)
+from token_utils import anthropic_token_count
+from ai import call_claude
 
-class MemoryManager:
-    """
-    Manages per-user memory for short-term conversation events.
-    Keeps a summary (under a target token limit) that aggregates repeated events.
-    Non-pivotal events (those that occur rarely) may be dumped to deep memory.
-    """
-    def __init__(self, summary_limit=2000, deep_memory_file="deep_memory.json"):
-        self.summary_limit = summary_limit  # maximum tokens in summary
-        self.memory = {}  # {user_id: {"events": {event: count}, "summary": str}}
-        self.deep_memory_file = deep_memory_file
-        try:
-            with open(deep_memory_file, "r") as f:
-                self.deep_memory = json.load(f)
-        except Exception:
-            self.deep_memory = {}
+def estimate_tokens(text: str) -> int:
+    """Estimate token count by assuming one token is roughly 4 characters."""
+    return len(text) // 4
 
-    def add_event(self, user_id: str, event_text: str):
-        """
-        Add an event for the given user. If the event already exists exactly, increment its count.
-        """
-        if user_id not in self.memory:
-            self.memory[user_id] = {"events": {}}
-        events = self.memory[user_id]["events"]
-        if event_text in events:
-            events[event_text] += 1
+async def maybe_summarize_conversation(
+    user_id: str,
+    user_data: dict,
+    # These parameters are no longer used because we use estimated token counts.
+    # max_unsummary_messages: int = 10,
+    # token_limit: int = 3000
+):
+    """
+    If the user's conversation is too large (by estimated token count),
+    call the summarizer to update core memories and replace older messages with a summary.
+    """
+    if user_id not in user_data:
+        user_data[user_id] = {
+            "token_usage": 0,
+            "premium": False,
+            "conversation_history": [],
+            "core_memories": ""
+        }
+
+    conversation = user_data[user_id]["conversation_history"]
+    if not conversation:
+        return
+
+    premium = user_data[user_id].get("premium", False)
+    model_to_use = PREMIUM_MODEL if premium else DEFAULT_MODEL
+
+    # Build a single text block from conversation messages.
+    conversation_text = "\n".join(f"{msg['role'].upper()}: {msg['content']}" for msg in conversation)
+    estimated_conv_tokens = estimate_tokens(conversation_text)
+
+    # If the estimated token count of the conversation is less than 7,500, do nothing.
+    if estimated_conv_tokens < 25000:
+        return
+
+    old_core = user_data[user_id].get("core_memories", "")
+    # If the core memories are too long, add an extra prompt.
+    if estimate_tokens(old_core) >= 25000:
+        core_prompt = f"{CORE_MEMORY_PROMPT}\n\n{CORE_MEMORY_DUMP_PROMPT}"
+    else:
+        core_prompt = CORE_MEMORY_PROMPT
+
+    # Dump old core memories to a pickle file if enabled.
+    if ENABLE_CORE_MEMORY_PICKLE_LOG:
+        os.makedirs(CORE_MEMORY_PICKLE_DIR, exist_ok=True)
+        pickle_filename = os.path.join(
+            CORE_MEMORY_PICKLE_DIR,
+            f"{user_id}_core_memories_{int(time.time())}.pickle"
+        )
+        with open(pickle_filename, "wb") as f:
+            pickle.dump(old_core, f)
+
+    # Build the summarization request.
+    summarization_request = (
+        f"{core_prompt}\n\n"
+        f"CURRENT CORE MEMORIES:\n{old_core}\n\n"
+        f"CONVERSATION:\n{conversation_text}\n\n"
+        "Please return updated core memories and a short summary in the format:\n\n"
+        "CORE MEMORIES:\n<updated core memories>\n\nSUMMARY:\n<short summary>"
+    )
+
+    # Backup the conversation.
+    backup_convo = conversation[:]
+    # Replace conversation_history with a single summarization request.
+    user_data[user_id]["conversation_history"] = [
+        {"role": "user", "content": summarization_request}
+    ]
+
+    # Call the summarizer using the SUMMARIZATION_PROMPT as the system prompt.
+    response = await call_claude(
+        user_id=user_id,
+        user_dict=user_data,
+        model=model_to_use,
+        system_prompt=SUMMARIZATION_PROMPT,
+        user_content=None,
+        temperature=0.5,
+        max_tokens=750
+    )
+    raw_output = response.choices[0].message["content"]
+
+    # Restore the original conversation.
+    user_data[user_id]["conversation_history"] = backup_convo
+
+    # Parse the summarizer's output.
+    updated_core = old_core
+    short_summary = ""
+    split_core = raw_output.split("CORE MEMORIES:")
+    if len(split_core) > 1:
+        after_core = split_core[1].strip()
+        sum_split = after_core.split("SUMMARY:")
+        if len(sum_split) > 1:
+            updated_core = sum_split[0].strip()
+            short_summary = sum_split[1].strip()
         else:
-            events[event_text] = 1
+            updated_core = after_core.strip()
+    else:
+        updated_core = raw_output.strip()
 
-    def generate_summary(self, user_id: str) -> str:
-        """
-        Generate a summary string from the user's events.
-        Pivotal events (with count >= 3) are always kept.
-        Non-pivotal events are added only if they do not exceed the summary token limit.
-        """
-        if user_id not in self.memory:
-            return ""
-        events = self.memory[user_id]["events"]
-        summary_lines = []
-        non_pivotal = {}
-        for event, count in events.items():
-            if count >= 3:
-                summary_lines.append(f"{event} (x{count})")
-            else:
-                non_pivotal[event] = count
-        summary = "\n".join(summary_lines)
-        # Try adding non-pivotal events if room allows
-        for event, count in non_pivotal.items():
-            line = f"{event} (x{count})" if count > 1 else event
-            if anthropic_token_count(summary + "\n" + line) < self.summary_limit:
-                summary += "\n" + line
-            else:
-                self.dump_to_deep_memory(user_id, event, count)
-        self.memory[user_id]["summary"] = summary
-        return summary
+    user_data[user_id]["core_memories"] += "\n" + updated_core
 
-    def dump_to_deep_memory(self, user_id: str, event: str, count: int):
-        """
-        Dump a non-pivotal event into deep memory and remove it from short-term memory.
-        """
-        if user_id not in self.deep_memory:
-            self.deep_memory[user_id] = {}
-        self.deep_memory[user_id][event] = count
-        if user_id in self.memory and event in self.memory[user_id]["events"]:
-            del self.memory[user_id]["events"][event]
-        with open(self.deep_memory_file, "w") as f:
-            json.dump(self.deep_memory, f, indent=2)
-
-    def reset_memory(self, user_id: str):
-        """
-        Reset the short-term memory for a given user.
-        """
-        if user_id in self.memory:
-            self.memory[user_id]["events"] = {}
-            self.memory[user_id]["summary"] = ""
-
-    def get_full_memory(self, user_id: str) -> (str, dict):
-        """
-        Return the current summary and deep memory for the user.
-        """
-        summary = self.generate_summary(user_id)
-        deep = self.deep_memory.get(user_id, {})
-        return summary, deep
-
-# Create a global MemoryManager instance
-memory_manager = MemoryManager()
+    # Replace the older conversation with a single summary message.
+    user_data[user_id]["conversation_history"] = [
+        {"role": "assistant", "content": f"(Summary) {short_summary}"}
+    ]
