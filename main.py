@@ -140,7 +140,7 @@ async def on_ready():
     global log_channel
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
     if log_channel:
-        await log_channel.send("Claude's Mask is online!")
+        await log_channel.send(f"Claude's Mask ({DEFAULT_NAME}) is online!")
         await log_channel.send("Loading user data...")
     try:
         await load_user_data()
