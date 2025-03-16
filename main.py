@@ -238,6 +238,11 @@ async def on_message(message: discord.Message):
     content = message.clean_content
     user_data[user_id]["conversation_history"].append({"role": "user", "content": content})
 
+    # Build final system prompt.
+    core_mem = user_data[user_id].get("core_memories", "")
+    system_text = f"{CORE_PROMPT}\n\nCore Memories:\n{core_mem}"
+
+
     if isinstance(message.channel, discord.DMChannel):
         extra_context = "This is a private conversation. You may be casual, personal, and more intimate."
     else:
@@ -245,9 +250,7 @@ async def on_message(message: discord.Message):
 
     system_text = f"{extra_context}\n{CORE_PROMPT}\n\nCore Memories:\n{core_mem}"
 
-    # Build final system prompt.
-    core_mem = user_data[user_id].get("core_memories", "")
-    system_text = f"{CORE_PROMPT}\n\nCore Memories:\n{core_mem}"
+
 
     # Choose model.
     model_to_use = PREMIUM_MODEL if user_data[user_id].get("premium", False) else DEFAULT_MODEL

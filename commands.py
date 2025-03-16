@@ -49,7 +49,7 @@ class RerollView(View):
     @discord.ui.button(label="Accept", style=discord.ButtonStyle.success, emoji="✅")
     async def accept_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Accept: update the ephemeral message and then send result publicly.
-        await self.original_message.edit(content="Message accepted.", view=None)
+        await self.original_message.edit(content="Message accepted.")
         await interaction.response.send_message(f"{self.result}")
         self.stop()
         if self.user_id in active_reroll_views and self in active_reroll_views[self.user_id]:
@@ -58,7 +58,7 @@ class RerollView(View):
     @discord.ui.button(label="Dismiss", style=discord.ButtonStyle.danger, emoji="❌")
     async def dismiss_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         # Dismiss: update the ephemeral message.
-        await self.original_message.edit(content="Reroll dismissed.", view=None)
+        await self.original_message.edit(content="Reroll dismissed.")
         self.stop()
         if self.user_id in active_reroll_views and self in active_reroll_views[self.user_id]:
             active_reroll_views[self.user_id].remove(self)
@@ -182,7 +182,7 @@ def setup_commands(bot: commands.Bot, user_data: dict):
         result = response.choices[0].message["content"]
 
         # Send the ephemeral message and get its message object.
-        ephemeral_msg = await interaction.followup.send(content=result, view=None, ephemeral=True)
+        ephemeral_msg = await interaction.followup.send(content=result, ephemeral=True)
         # Create a view instance with the original ephemeral message.
         new_view = RerollView(
             result=result,
