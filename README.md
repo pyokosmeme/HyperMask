@@ -93,9 +93,6 @@ In addition to the slash commands, the bot listens for specific commands in the 
 - **`shutdown?`**  
   *Description:* When an admin types `shutdown?`, the bot will announce its shutdown in the log channel and then disconnect.
 
-- **`user data? [user_id]`**  
-  *Description:* Retrieve detailed conversation data for a specified user. Replace `[user_id]` with the actual user ID. If no data is found, the bot will inform you accordingly.
-
 > **Note:** These text-based commands are intended for administrative purposes and are processed only in the log channel.
 
 ---
@@ -121,11 +118,9 @@ In addition to the slash commands, the bot listens for specific commands in the 
    ANTHROPIC_API_KEY="DUMMY_ANTHROPIC_API_KEY"
    discord_token="DUMMY_DISCORD_TOKEN"
    bot_usr_id="DUMMY_BOT_USER_ID"
-   allowed_servers=["DUMMY_SERVER_ID_1", "DUMMY_SERVER_ID_2"]
    default_name="DUMMY_BOT_NAME"
    description="DUMMY_DESCRIPTION: Placeholder description of the bot's persona."
    log_channel="DUMMY_LOG_CHANNEL"
-   ROLE_IDS='{"1": "DUMMY_ROLE_ID_1", "2": "DUMMY_ROLE_ID_2", "3": "DUMMY_ROLE_ID_3", "4": "DUMMY_ROLE_ID_4"}'
 
    core_prompt="CORE_PROMPT_PLACEHOLDER: [Explanation: Defines the bot's character, personality, and roleplaying guidelines with example responses.]"
    summarization_prompt="SUMMARIZATION_PROMPT_PLACEHOLDER: [Explanation: Instructs the bot to summarize conversation details focusing on key points and context.]"
