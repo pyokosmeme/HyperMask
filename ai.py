@@ -5,6 +5,7 @@ from utils import log_error
 import anthropic
 from config import (
     OAI_TOKEN,
+    ENABLE_API_CALL_LOGGING,
     COST_PER_TOKEN_HAIKU,
     COST_PER_TOKEN_SONNET,
     DEFAULT_MODEL,
@@ -15,6 +16,9 @@ from token_utils import anthropic_token_count
 
 
 def log_api_call(user_id: str, payload: dict, response_json: dict):
+    from config import ENABLE_API_CALL_LOGGING  # Import the flag
+    if not ENABLE_API_CALL_LOGGING:
+        return  # Exit early if logging is disabled
     try:
         with open("anthropic_api_calls.log", "a", encoding="utf-8") as f:
             f.write("=== Anthropic API Call ===\n")
@@ -26,6 +30,7 @@ def log_api_call(user_id: str, payload: dict, response_json: dict):
             f.write("\n\n")
     except Exception as e:
         log_error(f"Error logging API call: {e}")
+
 
 
 async def call_claude(
