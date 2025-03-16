@@ -93,7 +93,11 @@ In addition to the slash commands, the bot listens for specific commands in the 
 - **`shutdown?`**  
   *Description:* When an admin types `shutdown?`, the bot will announce its shutdown in the log channel and then disconnect.
 
+- **`user data? [user_id]`**  
+  *Description:* Retrieve detailed conversation data for a specified user (intended use is troubleshooting memory saving/retrieval). Replace `[user_id]` with the actual user ID. If no data is found, the bot will inform you accordingly.
+
 > **Note:** These text-based commands are intended for administrative purposes and are processed only in the log channel.
+
 
 ---
 
