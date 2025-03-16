@@ -238,6 +238,13 @@ async def on_message(message: discord.Message):
     content = message.clean_content
     user_data[user_id]["conversation_history"].append({"role": "user", "content": content})
 
+    if isinstance(message.channel, discord.DMChannel):
+        extra_context = "This is a private conversation. You may be casual, personal, and more intimate."
+    else:
+        extra_context = "This is a public channel. Be yourself, but the conversation is public, be aware not to carry over private conversation topics unless you want everyone to know about them."
+
+    system_text = f"{extra_context}\n{CORE_PROMPT}\n\nCore Memories:\n{core_mem}"
+
     # Build final system prompt.
     core_mem = user_data[user_id].get("core_memories", "")
     system_text = f"{CORE_PROMPT}\n\nCore Memories:\n{core_mem}"
