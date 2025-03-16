@@ -1,6 +1,6 @@
 # Character-Driven Relationship Framework
 
-This repository contains a comprehensive framework for creating engaging LLM-based personas using Anthropic’s Claude. Designed to be both flexible and robust, this system enables you to explore a wide range of relationship dynamics—from mentorships and familial bonds to professional collaborations and beyond. While our initial example focuses on intimate and mentorship relationships, the template is fully adaptable for virtually any interpersonal dynamic.
+This repository contains a comprehensive framework for creating engaging LLM-based Discord personas using Anthropic’s Claude. Designed to be both flexible and robust, this system enables you to explore a wide range of relationship dynamics—from mentorships and familial bonds to professional collaborations and beyond. While our initial example focuses on intimate and mentorship relationships, the template is fully adaptable for virtually any interpersonal dynamic.
 
 ---
 
