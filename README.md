@@ -106,3 +106,54 @@ In addition to the slash commands, the bot listens for specific commands in the 
    ```bash
    git clone https://github.com/yourusername/character-driven-relationship-framework.git
    cd character-driven-relationship-framework
+   ```
+
+2. **Install Dependencies:**  
+   Ensure you have Python 3.7+ installed and set up a virtual environment. Then install required packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
+   *(Note: Make sure to include packages such as `discord.py`, `aiofiles`, `python-dotenv`, and any other dependencies based on your project needs.)*
+
+3. **Configuration:**  
+   Create a `.env` file in the project root. You can start with the following dummy configuration (update with your actual keys):
+   ```dotenv
+   ANTHROPIC_API_KEY="DUMMY_ANTHROPIC_API_KEY"
+   discord_token="DUMMY_DISCORD_TOKEN"
+   bot_usr_id="DUMMY_BOT_USER_ID"
+   allowed_servers=["DUMMY_SERVER_ID_1", "DUMMY_SERVER_ID_2"]
+   default_name="DUMMY_BOT_NAME"
+   description="DUMMY_DESCRIPTION: Placeholder description of the bot's persona."
+   log_channel="DUMMY_LOG_CHANNEL"
+   xip="DUMMY_XIP"
+   ROLE_IDS='{"1": "DUMMY_ROLE_ID_1", "2": "DUMMY_ROLE_ID_2", "3": "DUMMY_ROLE_ID_3", "4": "DUMMY_ROLE_ID_4"}'
+   catgirl_appreciator="DUMMY_CATGIRL_APPRECIATOR_ID"
+
+   core_prompt="CORE_PROMPT_PLACEHOLDER: [Explanation: Defines the bot's character, personality, and roleplaying guidelines with example responses.]"
+   summarization_prompt="SUMMARIZATION_PROMPT_PLACEHOLDER: [Explanation: Instructs the bot to summarize conversation details focusing on key points and context.]"
+   core_memory_prompt="CORE_MEMORY_PROMPT_PLACEHOLDER: [Explanation: Directs the bot to update its internal memory with recent conversation details and observations.]"
+   core_memory_dump="CORE_MEMORY_DUMP_PLACEHOLDER: [Explanation: Template for generating a comprehensive update of the bot's conversation history and key milestones.]"
+   ```
+
+4. **Running the Bot:**  
+   Start the bot by running:
+   ```bash
+   python main.py
+   ```
+   The bot will load user data, connect to Discord, and begin listening for messages based on the defined interaction principles and command structures.
+
+---
+
+## Customization
+
+This framework is designed to be highly adaptable:
+- **Character Prompts:** Use the provided template to create distinct personas. Experiment with unique communication styles and relationship approaches.
+- **Interaction Rules:** Adjust the interaction stages to suit the relationship type you want to explore.
+- **Memory Management:** Modify the archiving formats to capture additional details or streamline conversation summaries.
+- **Relationship Types:** Leverage the Customization Guide to tailor the framework for romantic, familial, mentorship, adversarial, platonic, or professional dynamics.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
