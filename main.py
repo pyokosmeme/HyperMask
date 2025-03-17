@@ -59,11 +59,11 @@ async def get_yes_no_votes(message, external_context="", is_bot=False, vote_coun
         async with bot_reply_lock:
             count = bot_reply_counts.get(message.author.id, 0)
         penalty_text = f" Note: this message is from a bot and you have already received {count} replies from me. Bot Reply Threshold is set at {BOT_REPLY_THRESHOLD}"
-        prompt = f"""[System Addenum, OOC]: {bot_name}, below is the ongoing conversational context, and above is a message that was sent to an LLM, and 
-        you are tasked with something quite simple and straightforward. Given the existing conversational context, respond with a simple yes/no: would you like to reply to this message? 
-        Only respond with either yes, or no. No commentary or follow-up questions about the context. 
-        Respond with only the word 'Yes' or 'No' without any additional text, explanation, punctuation or commentary. 
-        Just the single word answer alone. {penalty_text}.\n External Context: \n {external_context}"""
+    prompt = f"""[System Addenum, OOC]: {bot_name}, below is the ongoing conversational context, and above is a message that was sent to an LLM, and 
+    you are tasked with something quite simple and straightforward. Given the existing conversational context, respond with a simple yes/no: would you like to reply to this message? 
+    Only respond with either yes, or no. No commentary or follow-up questions about the context. 
+    Respond with only the word 'Yes' or 'No' without any additional text, explanation, punctuation or commentary. 
+    Just the single word answer alone. {penalty_text}.\n External Context: \n {external_context}"""
 
     votes = []
     dummy_user_dict = {
