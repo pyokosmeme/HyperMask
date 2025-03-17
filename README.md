@@ -9,7 +9,7 @@ This repository contains a comprehensive framework for creating engaging LLM-bas
 The framework is built around four key components:
 
 1. **Character Definition Template**  
-   Create richly detailed personas with distinctive traits, communication styles, and a dual-mode system. For example, the persona now defaults to **Claude's Mask**—a friendly, adaptive assistant defined by the system prompt *"You are CatgirlGPT, a friendly and adaptive assistant."* The bot can dynamically adjust its presentation based on context.
+   Create richly detailed personas with distinctive traits, communication styles, and a dual-mode system. For example, the persona now defaults to **Claude's Mask**—a friendly, adaptive assistant defined by the system prompt *"You are CatgirlGPT, a friendly and adaptive assistant."* The bot dynamically adjusts its presentation based on context.
 
 2. **Interaction Principles**  
    Establish and evolve relationship dynamics by following clear guidelines—from the initial encounter to deep, multifaceted connections. The system breaks down relationship progression into distinct stages, ensuring natural development and engagement.
@@ -36,23 +36,33 @@ The framework is built around four key components:
 
 ---
 
-## Bot Reply Logic
+## Bot Reply Logic & New Functionality
 
-The bot follows distinct reply behaviors depending on whether it is interacting in a public channel or a private DM:
+The bot's response behavior now features several dynamic enhancements to ensure a context-aware and balanced interaction across public channels and DMs:
 
 ### **Direct Messages (DMs)**
-- The bot **always** replies to messages in DMs.
-- The conversation context remains private, allowing for a more casual, personal, and intimate interaction style.
-- The system prompt includes a note emphasizing that the conversation is private and encourages natural interaction.
+- **Always Replies:** The bot always responds to DMs.  
+- **Personal & Intimate:** The conversation context remains private, allowing for a more casual, personal, and intimate interaction style.
+- **Dedicated System Prompt:** The DM prompt emphasizes that the conversation is private, encouraging natural dialogue.
 
 ### **Public Channels**
-- The bot will **only reply if explicitly mentioned by name** (`{DEFAULT_NAME}` in the message) or if it passes a voting system.
-- If not mentioned, the bot determines whether to respond by running a yes/no voting process.
-  - It gathers multiple AI-generated votes (**3 votes**) to decide whether to respond.
-  - If the majority vote is **yes**, the bot replies.
-- The bot limits responses to messages from other bots to avoid infinite loops.
-- The system prompt reminds the bot that the conversation is public, encouraging it to maintain appropriate awareness.
-- The bot incorporates up to **10 most recent messages** from the channel as external context when crafting a response.
+- **Selective Replies via Yes/No Voting:**  
+  - The bot will only reply if it is explicitly mentioned by name (using `{DEFAULT_NAME}`) or if it passes a voting process.  
+  - For messages not explicitly addressed to it, the bot solicits a yes/no vote from an LLM (via multiple AI-generated votes, typically 3) on whether to reply.  
+  - The vote prompt now includes a summary of the **external context** (i.e. recent public messages) so that the LLM can take the broader conversation into account.
+  
+- **Bot Reply Throttling:**  
+  - To prevent bot-to-bot chatter, the system keeps track of how many times it has replied to a bot and will refuse to respond once a preset threshold is reached.  
+  - When a human sends a message, the bot resets its reply count, ensuring that conversations among bots are limited.
+
+- **Dynamic Delay Mechanism:**  
+  - The bot introduces a delay before sending its response in public channels.  
+  - This delay is calculated dynamically (currently at **10 ms per character** of the incoming message), ensuring that responses appear more human-like and reducing the likelihood of rapid-fire bot interactions.
+  - The delay is applied only after the API call completes, keeping the typing indicator behavior intuitive.
+
+- **Context Limitation:**  
+  - The bot builds an external context from the public channel by aggregating recent messages.  
+  - This context is limited to approximately **6,000 characters** (roughly 2,000 tokens) to keep the prompt concise, cost-effective, and fast, without nearing the overall context window limit.
 
 ---
 
@@ -61,24 +71,24 @@ The bot follows distinct reply behaviors depending on whether it is interacting 
 ### **Slash Commands**
 
 - **`/debug`**  
-  *Description:* Toggle verbose logging and/or show the conversation context.  
+  *Description:* Toggle verbose logging and/or display the conversation context.  
   *Options:*
-  - **action:** Choose among `'toggle'` (to switch verbose logging on/off), `'show'` (to display the conversation context via DM), or `'both'`.
+  - **action:** Choose among `'toggle'` (switch verbose logging on/off), `'show'` (display the conversation context via DM), or `'both'`.
 
 - **`/reroll`**  
   *Description:* Reroll the last assistant response with optional additional context.  
   *Options:*
-  - **context (optional):** Provide extra context that the bot should consider when generating a new response.
+  - **context (optional):** Provide extra context for generating a new response.
 
 ### **Log Channel Text Commands**
 
 - **`shutdown? {DEFAULT_NAME}`**  
-  *Description:* When an admin types `shutdown? {DEFAULT_NAME}`, the bot will announce its shutdown in the log channel and then disconnect.
+  *Description:* When an admin types `shutdown? {DEFAULT_NAME}`, the bot announces its shutdown in the log channel and disconnects.
 
 - **`user data? [user_id]`**  
-  *Description:* Retrieve detailed conversation data for a specified user (intended for troubleshooting memory saving/retrieval). Replace `[user_id]` with the actual user ID. If no data is found, the bot will indicate so.
+  *Description:* Retrieve detailed conversation data for a specified user (for troubleshooting memory saving/retrieval). Replace `[user_id]` with the actual user ID. If no data is found, the bot will indicate so.
 
-> **Note:** These text-based commands are intended for administrative purposes and are processed only in the log channel.
+> **Note:** These commands are for administrative purposes and are processed only in the log channel.
 
 ---
 
