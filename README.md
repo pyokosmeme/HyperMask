@@ -1,6 +1,6 @@
 # Character-Driven Relationship Framework
 
-This repository contains a comprehensive framework for creating engaging LLM-based Discord personas using Anthropic’s Claude. Designed to be both flexible and robust, this system enables you to explore a wide range of relationship dynamics—from mentorships and familial bonds to professional collaborations and beyond. While our initial example focuses on intimate and mentorship relationships, the template is fully adaptable for virtually any interpersonal dynamic.
+This repository contains a comprehensive framework for creating engaging LLM-based Discord personas using Anthropic’s Claude. Designed to be both flexible and robust, the system enables you to explore a wide range of relationship dynamics—from mentorships and familial bonds to professional collaborations and beyond. While our initial example focused on intimate and mentorship relationships, the template is fully adaptable for virtually any interpersonal dynamic.
 
 ---
 
@@ -9,7 +9,7 @@ This repository contains a comprehensive framework for creating engaging LLM-bas
 The framework is built around four key components:
 
 1. **Character Definition Template**  
-   Create richly detailed personas with distinctive traits, communication styles, and a dual-mode system. For example, the character *Theia* can switch between a “cosmic shield” mode and direct communication, allowing nuanced expression based on context.
+   Create richly detailed personas with distinctive traits, communication styles, and a dual-mode system. For example, the persona now defaults to **Claude's Mask**—a friendly, adaptive assistant defined by the system prompt *"You are CatgirlGPT, a friendly and adaptive assistant."* The bot can dynamically adjust its presentation based on context.
 
 2. **Interaction Principles**  
    Establish and evolve relationship dynamics by following clear guidelines—from the initial encounter to deep, multifaceted connections. The system breaks down relationship progression into distinct stages, ensuring natural development and engagement.
@@ -19,7 +19,7 @@ The framework is built around four key components:
    - A **comprehensive record** that tracks long-term evolution.
    - A **quick update format** for real-time insights and recent interactions.
 
-   This dual approach ensures that both overarching themes and immediate changes are captured and can inform future interactions.
+   This dual approach captures both overarching themes and immediate details, with conversation summarization triggered when the conversation exceeds a token threshold.
 
 4. **Customization Guide**  
    Adapt the framework to various relationship types:
@@ -36,22 +36,13 @@ The framework is built around four key components:
 
 ---
 
-## Implementation Example
-
-As a demonstration, the repository includes an implementation that sets up a mentorship relationship between *Maya* (a forest ranger with deep ecological insight) and *Eli* (a city-dwelling graduate student). In this example:
-- **Character Definition:** Maya uses nature metaphors and shifts her tone from reserved to passionate when discussing conservation.
-- **Interaction Principles:** The dynamic evolves from a knowledge imbalance (teacher/student) to a mutually respectful collaboration.
-- **Memory Archiving:** Both long-term growth and short-term updates are captured, ensuring that each milestone is noted and leveraged in subsequent interactions.
-
----
-
 ## Project Structure
 
 - **`memory.py`**  
-  Contains logic for summarizing and archiving conversation history. It uses a pickled log to persist core memories when the conversation exceeds a set token limit.
+  Contains logic for summarizing and archiving conversation history. When the estimated token count of a conversation becomes too high, it automatically calls a summarizer to update core memories and condenses older conversation history into a brief summary.
 
 - **`commands.py`**  
-  Implements Discord slash commands (e.g., `/debug`, `/reroll`) and manages interactive elements like reroll views to refine assistant responses.
+  Implements Discord slash commands (e.g., `/debug`, `/reroll`) and manages interactive elements like reroll views to refine assistant responses. The commands now incorporate improved handling of interactive message updates.
 
 - **`utils.py`**  
   Provides helper functions for logging, message splitting, and sending messages that exceed Discord’s character limit.
@@ -60,19 +51,24 @@ As a demonstration, the repository includes an implementation that sets up a men
   Offers utility functions to estimate token counts and interface with Anthropic’s token counting API.
 
 - **`config.py`**  
-  Loads configuration from a dummy `.env` file and sets up model names, API keys, and other environment-specific parameters.
+  Loads configuration from a `.env` file and sets up API keys, model names, and other environment-specific parameters. **Notably:**
+  - `DEFAULT_NAME` is now set as  
+    ```python
+    DEFAULT_NAME = os.environ.get("default_name", "Claude's Mask")
+    ```  
+    meaning the bot defaults to **Claude's Mask** unless overridden by the environment.
+  - The core persona prompt defaults to *"You are CatgirlGPT, a friendly and adaptive assistant."*  
+    This ensures that while the display name is **Claude's Mask**, the assistant’s behavior follows the CatgirlGPT persona.
 
 - **`main.py`**  
-  The entry point for the bot. It manages Discord event handling, conversation flow, periodic data saving, and integrates the various components of the framework.
+  The entry point for the bot. It handles Discord event processing, manages conversation flow (including dynamic summarization of long conversations), and periodically saves user data. When coming online, the bot announces its presence by referencing the updated default name and dynamically adjusts response behavior based on context.
 
 - **`ai.py`**  
-  Handles API calls to Anthropic’s Claude, including token cost calculations and response logging.
+  Handles API calls to Anthropic’s Claude, including token cost calculations, response logging, and error handling. It updates token usage for users and formats responses in a consistent style.
 
 ---
 
 ## Discord Commands & Administration
-
-This framework integrates with Discord through both slash commands and admin text commands. Here's a quick guide to the available commands:
 
 ### Slash Commands
 
@@ -88,16 +84,13 @@ This framework integrates with Discord through both slash commands and admin tex
 
 ### Log Channel Text Commands
 
-In addition to the slash commands, the bot listens for specific commands in the designated log channel:
-
-- **`shutdown?`**  
-  *Description:* When an admin types `shutdown?`, the bot will announce its shutdown in the log channel and then disconnect.
+- **`shutdown? {DEFAULT_NAME}`**  
+  *Description:* When an admin types `shutdown? CONFIRM`, the bot will announce its shutdown in the log channel and then disconnect. This update ensures a confirmation step is required to prevent accidental shutdowns.
 
 - **`user data? [user_id]`**  
-  *Description:* Retrieve detailed conversation data for a specified user (intended use is troubleshooting memory saving/retrieval). Replace `[user_id]` with the actual user ID. If no data is found, the bot will inform you accordingly.
+  *Description:* Retrieve detailed conversation data for a specified user (intended for troubleshooting memory saving/retrieval). Replace `[user_id]` with the actual user ID. If no data is found, the bot will indicate so.
 
 > **Note:** These text-based commands are intended for administrative purposes and are processed only in the log channel.
-
 
 ---
 
@@ -114,22 +107,19 @@ In addition to the slash commands, the bot listens for specific commands in the 
    ```bash
    pip install -r requirements.txt
    ```
-   *(Note: Make sure to include packages such as `discord.py`, `aiofiles`, `python-dotenv`, and any other dependencies based on your project needs.)*
+   *(Note: The repository requires packages such as `discord.py`, `aiofiles`, `python-dotenv`, among others.)*
 
 3. **Configuration:**  
-   Create a `.env` file in the project root. You can start with the following dummy configuration (update with your actual keys):
+   Create a `.env` file in the project root with:
    ```dotenv
    ANTHROPIC_API_KEY="DUMMY_ANTHROPIC_API_KEY"
    discord_token="DUMMY_DISCORD_TOKEN"
-   bot_usr_id="DUMMY_BOT_USER_ID"
-   default_name="DUMMY_BOT_NAME"
-   description="DUMMY_DESCRIPTION: Placeholder description of the bot's persona."
    log_channel="DUMMY_LOG_CHANNEL"
-
-   core_prompt="CORE_PROMPT_PLACEHOLDER: [Explanation: Defines the bot's character, personality, and roleplaying guidelines with example responses.]"
-   summarization_prompt="SUMMARIZATION_PROMPT_PLACEHOLDER: [Explanation: Instructs the bot to summarize conversation details focusing on key points and context.]"
-   core_memory_prompt="CORE_MEMORY_PROMPT_PLACEHOLDER: [Explanation: Directs the bot to update its internal memory with recent conversation details and observations.]"
-   core_memory_dump="CORE_MEMORY_DUMP_PLACEHOLDER: [Explanation: Template for generating a comprehensive update of the bot's conversation history and key milestones.]"
+   default_name="DUMMY_BOT_NAME"  # Optional: Overrides the default "Claude's Mask"
+   core_prompt="CORE_PROMPT_PLACEHOLDER: Defines the bot's character and personality."
+   summarization_prompt="SUMMARIZATION_PROMPT_PLACEHOLDER: Instructs the bot to summarize key points."
+   core_memory_prompt="CORE_MEMORY_PROMPT_PLACEHOLDER: Directs memory updates."
+   core_memory_dump="CORE_MEMORY_DUMP_PLACEHOLDER: Template for conversation history updates."
    ```
 
 4. **Running the Bot:**  
@@ -141,16 +131,7 @@ In addition to the slash commands, the bot listens for specific commands in the 
 
 ---
 
-## Customization
-
-This framework is designed to be highly adaptable:
-- **Character Prompts:** Use the provided template to create distinct personas. Experiment with unique communication styles and relationship approaches.
-- **Interaction Rules:** Adjust the interaction stages to suit the relationship type you want to explore.
-- **Memory Management:** Modify the archiving formats to capture additional details or streamline conversation summaries.
-- **Relationship Types:** Leverage the Customization Guide to tailor the framework for romantic, familial, mentorship, adversarial, platonic, or professional dynamics.
-
----
-
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
