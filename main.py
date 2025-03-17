@@ -336,9 +336,9 @@ async def on_message(message: discord.Message):
             verbose=False
         )
         # For bot messages, calculate a delay proportional to the length of the reply.
-        # Default is 10 ms per character.
+        # Default is 5 ms per character.
         if message.author.bot:
-            delay_time = len(message.content)*0.10
+            delay_time = len(message.content)*0.05
             await asyncio.sleep(delay_time)
     result = response.choices[0].message["content"]
 
