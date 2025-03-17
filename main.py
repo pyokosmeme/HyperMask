@@ -48,7 +48,7 @@ def build_external_context(channel_id):
         total_chars += msg_len
     return "\n".join(selected_msgs)
     
-async def get_yes_no_votes(message, is_bot=False, vote_count=3):
+async def get_yes_no_votes(message, external_context="", is_bot=False, vote_count=3):
     """
     Ask Claude-3-5-haiku for multiple yes/no votes.
     Returns a list of votes, each as "yes", "no", or "abstain".
@@ -59,12 +59,11 @@ async def get_yes_no_votes(message, is_bot=False, vote_count=3):
         async with bot_reply_lock:
             count = bot_reply_counts.get(message.author.id, 0)
         penalty_text = f" Note: this message is from a bot and you have already received {count} replies from me. Bot Reply Threshold is set at {BOT_REPLY_THRESHOLD}"
-    prompt = f"""[System Addenum, OOC]: {bot_name}, the message above is a message that was sent to an LLM, and 
-    you are tasked with something quite simple and straightforward. 
-    Respond with a simple yes/no: would you like to reply to this message? 
-    Only respond with either yes, or no. No commentary or follow-up questions. 
-    Respond with only the word 'Yes' or 'No' without any additional text, explanation, punctuation or commentary. 
-    Just the single word answer alone. {penalty_text}"""
+        prompt = f"""[System Addenum, OOC]: {bot_name}, below is the ongoing conversational context, and above is a message that was sent to an LLM, and 
+        you are tasked with something quite simple and straightforward. Given the existing conversational context, respond with a simple yes/no: would you like to reply to this message? 
+        Only respond with either yes, or no. No commentary or follow-up questions about the context. 
+        Respond with only the word 'Yes' or 'No' without any additional text, explanation, punctuation or commentary. 
+        Just the single word answer alone. {penalty_text}.\n External Context: \n {external_context}"""
 
     votes = []
     dummy_user_dict = {
@@ -98,14 +97,6 @@ async def get_yes_no_votes(message, is_bot=False, vote_count=3):
     return votes
 
 async def should_reply(message):
-    """
-    Decide whether the bot should reply to the given message.
-    - In DMs, always reply.
-    - In non-DM channels:
-      - If the bot name is mentioned, reply immediately.
-      - Otherwise, ask Claude via multiple yes/no votes.
-    - For messages from bots, check the reply counter atomically.
-    """
     if isinstance(message.channel, discord.DMChannel):
         return True
 
@@ -120,11 +111,17 @@ async def should_reply(message):
                 return False
 
     is_bot_message = message.author.bot
-    votes = await get_yes_no_votes(message, is_bot=is_bot_message, vote_count=3)
+    external_context = ""
+    # Only build external context for public channels.
+    if not isinstance(message.channel, discord.DMChannel):
+        external_context = build_external_context(message.channel.id)
+
+    votes = await get_yes_no_votes(message, external_context, is_bot=is_bot_message, vote_count=3)
     yes_votes = votes.count("yes")
     no_votes = votes.count("no")
     abstain_votes = votes.count("abstain")
     return yes_votes > no_votes and yes_votes > abstain_votes
+
 
 user_data = {}
 USER_DATA_FILE = "user_info.pickle"
