@@ -324,7 +324,7 @@ async def on_message(message: discord.Message):
 
     # If the message author is a bot, add a delay before sending the response.
     if message.author.bot:
-        await asyncio.sleep(5)  # Delay for 5 seconds (adjust as needed)
+        await asyncio.sleep(20)  # Delay for 5 seconds (adjust as needed)
 
     # Append the assistant's reply to the appropriate separate history.
     reply_entry = {"role": "assistant", "content": result}
