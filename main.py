@@ -32,6 +32,22 @@ bot_reply_lock = asyncio.Lock()
 # Key: channel ID, Value: list of messages (each as a dict with author and content)
 channel_context = {}
 
+
+# Function to build external context based on total character length.
+def build_external_context(channel_id):
+    messages = channel_context.get(channel_id, [])
+    # Start from the most recent message and work backwards.
+    selected_msgs = []
+    total_chars = 0
+    # Reverse the list so we add most recent messages first.
+    for msg in reversed(messages):
+        msg_len = len(msg["content"])
+        if total_chars + msg_len > 40000:
+            break
+        selected_msgs.insert(0, f"{msg['author']}: {msg['content']}")
+        total_chars += msg_len
+    return "\n".join(selected_msgs)
+    
 async def get_yes_no_votes(message, is_bot=False, vote_count=3):
     """
     Ask Claude-3-5-haiku for multiple yes/no votes.
@@ -47,7 +63,7 @@ async def get_yes_no_votes(message, is_bot=False, vote_count=3):
     you are tasked with something quite simple and straightforward. 
     Respond with a simple yes/no: would you like to reply to this message? 
     Only respond with either yes, or no. No commentary or follow-up questions. 
-    Respond with only the word 'Yes' or 'No' without any additional text, explanation, or commentary. 
+    Respond with only the word 'Yes' or 'No' without any additional text, explanation, punctuation or commentary. 
     Just the single word answer alone. {penalty_text}"""
 
     votes = []
@@ -201,8 +217,9 @@ async def on_message(message: discord.Message):
                 "author": message.author.name,
                 "content": clean_content
             })
-        # Limit the external context to the last 20 messages.
-        channel_context[message.channel.id] = channel_context[message.channel.id][-20:]
+        # Instead of limiting to last 20 messages, you could also prune the list if needed:
+        if len(channel_context[message.channel.id]) > 100:  # e.g., keep at most 100 messages.
+            channel_context[message.channel.id] = channel_context[message.channel.id][-100:]
 
     # Handle admin commands in the log channel.
     if message.channel.id == log_channel.id:
@@ -291,12 +308,8 @@ async def on_message(message: discord.Message):
             "This is a public channel. Be yourself, but the conversation is public; "
             "be aware not to carry over private conversation topics unless you want everyone to know about them."
         )
-        # Build external context from the channel's recent messages.
-        context_lines = []
-        for msg in channel_context.get(message.channel.id, []):
-            if msg["content"]:
-                context_lines.append(f"{msg['author']}: {msg['content']}")
-        external_context = "\n".join(context_lines)
+        # Use the new function to build context based on total character length.
+        external_context = build_external_context(message.channel.id)
 
     # For compatibility with existing functions (call_claude, maybe_summarize_conversation),
     # update the legacy combined history to use the selected history.
@@ -327,9 +340,11 @@ async def on_message(message: discord.Message):
         )
     result = response.choices[0].message["content"]
 
-    # If the message author is a bot, add a delay before sending the response.
+    # For bot messages, calculate a delay proportional to the length of the reply.
+    # Default is 10 ms per character.
     if message.author.bot:
-        await asyncio.sleep(20)  # Delay for 20 seconds (adjust as needed)
+        delay_time = (len(result) +len(message.content))*0.10
+        await asyncio.sleep(delay_time)
 
     # Append the assistant's reply to the appropriate separate history.
     reply_entry = {"role": "assistant", "content": result}
