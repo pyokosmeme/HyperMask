@@ -14,7 +14,7 @@ LOG_CHANNEL_ID = int(os.environ.get("log_channel", "0"))
 
 # Model names – adjust these as needed.
 
-DEFAULT_MODEL = "claude-3-7-sonnet-latest"
+DEFAULT_MODEL = "claude-3-5-sonnet-latest"
 PREMIUM_MODEL = "claude-3-7-sonnet-latest"
 
 # Example token cost per token (adjust to your real pricing)
@@ -23,7 +23,7 @@ COST_PER_TOKEN_SONNET = 0.000003
 
 # Persona/system prompt for your bot
 CORE_PROMPT = os.environ.get("core_prompt", "You are CatgirlGPT, a friendly and adaptive assistant.")
-DEFAULT_NAME = os.environ.get("default_name", "Theia")
+DEFAULT_NAME = os.environ.get("default_name", "Claude's Mask")
 
 # Summarizer system prompt used when summarizing conversation for core memory updates
 SUMMARIZATION_PROMPT = os.environ.get("summarization_prompt", "You are a summarizer. Please update core memories and provide a short summary.")
