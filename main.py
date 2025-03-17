@@ -187,7 +187,7 @@ async def on_message(message: discord.Message):
     if message.author.id == bot.user.id:
         return
 
-    # Record public channel messages for external context.
+    # For public channels, record messages for external context.
     if not isinstance(message.channel, discord.DMChannel):
         channel_context.setdefault(message.channel.id, [])
         clean_content = message.clean_content.strip()
@@ -196,8 +196,8 @@ async def on_message(message: discord.Message):
                 "author": message.author.name,
                 "content": clean_content
             })
-        # Limit the external context to the last 10 messages.
-        channel_context[message.channel.id] = channel_context[message.channel.id][-10:]
+        # Limit the external context to the last 20 messages.
+        channel_context[message.channel.id] = channel_context[message.channel.id][-20:]
 
     # Handle admin commands in the log channel.
     if message.channel.id == log_channel.id:
@@ -243,12 +243,11 @@ async def on_message(message: discord.Message):
     if not content:
         return
 
-    # If a human sends a message, reset bot reply counts.
+    # Reset or update bot reply counts.
     if not message.author.bot:
         async with bot_reply_lock:
             bot_reply_counts.clear()
     else:
-        # For bot messages, update the counter atomically.
         async with bot_reply_lock:
             count = bot_reply_counts.get(message.author.id, 0)
             if count >= BOT_REPLY_THRESHOLD:
@@ -256,40 +255,58 @@ async def on_message(message: discord.Message):
             bot_reply_counts[message.author.id] = count + 1
 
     user_id = str(message.author.id)
+    # Initialize user data if not already present.
     if user_id not in user_data:
         user_data[user_id] = {
             "token_usage": 0,
             "premium": False,
-            "conversation_history": [],
-            "core_memories": ""
+            "dm_conversation_history": [],
+            "public_conversation_history": [],
+            "core_memories": "",
+            # Legacy combined history for backward compatibility.
+            "conversation_history": []
         }
+    else:
+        # Migrate old combined history if needed.
+        if "dm_conversation_history" not in user_data[user_id]:
+            user_data[user_id]["dm_conversation_history"] = user_data[user_id].get("conversation_history", [])
+        if "public_conversation_history" not in user_data[user_id]:
+            user_data[user_id]["public_conversation_history"] = []
 
-    await maybe_summarize_conversation(user_id, user_data)
-
-    # Append the user message to the conversation history.
-    user_data[user_id]["conversation_history"].append({"role": "user", "content": content})
-
-    # Build the system prompt.
-    core_mem = user_data[user_id].get("core_memories", "")
+    # Append the incoming message to the appropriate separate history.
     if isinstance(message.channel, discord.DMChannel):
+        user_data[user_id]["dm_conversation_history"].append({"role": "user", "content": content})
+        selected_history = user_data[user_id]["dm_conversation_history"]
         extra_context = "This is a private conversation. You may be casual, personal, and more intimate."
         external_context = ""
     else:
-        extra_context = ("This is a public channel. Be yourself, but the conversation is public; "
-                         "be aware not to carry over private conversation topics unless you want everyone to know about them.")
-        # Build external context from the channel context.
+        user_data[user_id]["public_conversation_history"].append({"role": "user", "content": content})
+        selected_history = user_data[user_id]["public_conversation_history"]
+        extra_context = (
+            "This is a public channel. Be yourself, but the conversation is public; "
+            "be aware not to carry over private conversation topics unless you want everyone to know about them."
+        )
+        # Build external context from the channel's recent messages.
         context_lines = []
         for msg in channel_context.get(message.channel.id, []):
             if msg["content"]:
                 context_lines.append(f"{msg['author']}: {msg['content']}")
         external_context = "\n".join(context_lines)
 
+    # For compatibility with existing functions (call_claude, maybe_summarize_conversation),
+    # update the legacy combined history to use the selected history.
+    user_data[user_id]["conversation_history"] = selected_history
+
+    # Summarize if necessary.
+    await maybe_summarize_conversation(user_id, user_data)
+
+    # Build the system prompt.
+    core_mem = user_data[user_id].get("core_memories", "")
     system_text = f"{extra_context}\n"
     if external_context:
         system_text += f"External Context:\n{external_context}\n"
     system_text += f"{CORE_PROMPT}\n\nCore Memories:\n{core_mem}"
 
-    # Choose the appropriate model.
     model_to_use = PREMIUM_MODEL if user_data[user_id].get("premium", False) else DEFAULT_MODEL
 
     async with message.channel.typing():
@@ -305,12 +322,23 @@ async def on_message(message: discord.Message):
         )
     result = response.choices[0].message["content"]
 
-    # Append the assistant's reply to the conversation history.
-    user_data[user_id]["conversation_history"].append({"role": "assistant", "content": result})
+    # If the message author is a bot, add a delay before sending the response.
+    if message.author.bot:
+        await asyncio.sleep(5)  # Delay for 5 seconds (adjust as needed)
+
+    # Append the assistant's reply to the appropriate separate history.
+    reply_entry = {"role": "assistant", "content": result}
+    if isinstance(message.channel, discord.DMChannel):
+        user_data[user_id]["dm_conversation_history"].append(reply_entry)
+    else:
+        user_data[user_id]["public_conversation_history"].append(reply_entry)
+    # Update the legacy combined history as well.
+    user_data[user_id]["conversation_history"] = selected_history
 
     await send_large_message(message.channel, f"{message.author.mention} {result}")
     await save_user_data()
     await bot.process_commands(message)
+
 
 @tasks.loop(minutes=1)
 async def periodic_save():
