@@ -42,7 +42,7 @@ def build_external_context(channel_id):
     # Reverse the list so we add most recent messages first.
     for msg in reversed(messages):
         msg_len = len(msg["content"])
-        if total_chars + msg_len > 40000:
+        if total_chars + msg_len > 4000:
             break
         selected_msgs.insert(0, f"{msg['author']}: {msg['content']}")
         total_chars += msg_len
