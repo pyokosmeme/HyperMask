@@ -338,13 +338,12 @@ async def on_message(message: discord.Message):
             max_tokens=1250,
             verbose=False
         )
+        # For bot messages, calculate a delay proportional to the length of the reply.
+        # Default is 10 ms per character.
+        if message.author.bot:
+            delay_time = len(message.content)*0.10
+            await asyncio.sleep(delay_time)
     result = response.choices[0].message["content"]
-
-    # For bot messages, calculate a delay proportional to the length of the reply.
-    # Default is 10 ms per character.
-    if message.author.bot:
-        delay_time = (len(result) +len(message.content))*0.10
-        await asyncio.sleep(delay_time)
 
     # Append the assistant's reply to the appropriate separate history.
     reply_entry = {"role": "assistant", "content": result}
