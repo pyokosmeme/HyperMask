@@ -42,8 +42,13 @@ async def get_yes_no_votes(message, is_bot=False, vote_count=3):
     if is_bot:
         async with bot_reply_lock:
             count = bot_reply_counts.get(message.author.id, 0)
-        penalty_text = f" Note: this message is from a bot and you have already received {count} replies from me."
-    prompt = f"{bot_name}, respond with a simple yes/no: would you like to reply to this message?{penalty_text}"
+        penalty_text = f" Note: this message is from a bot and you have already received {count} replies from me. Bot Reply Threshold is set at {BOT_REPLY_THRESHOLD}"
+    prompt = f"""[System Addenum, OOC]: {bot_name}, the message above is a message that was sent to an LLM, and 
+    you are tasked with something quite simple and straightforward. 
+    Respond with a simple yes/no: would you like to reply to this message? 
+    Only respond with either yes, or no. No commentary or follow-up questions. 
+    Respond with only the word 'Yes' or 'No' without any additional text, explanation, or commentary. 
+    Just the single word answer alone. {penalty_text}"""
 
     votes = []
     dummy_user_dict = {
