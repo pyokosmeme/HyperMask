@@ -435,7 +435,9 @@ async def on_message(message: discord.Message):
                 delay_time = len(message.content) * 0.05
                 await asyncio.sleep(delay_time)
 
-            result = response.choices[0].message["content"].strip()  # Strip whitespace to fix the error
+            result = response.choices[0].message["content"].strip()
+            # Clean the response to remove formatting artifacts
+            result = clean_response(result)
             # Check for empty results
             if not result:
                 result = "[OOC]: Error: Empty response. Please try again. [/OOC]"
