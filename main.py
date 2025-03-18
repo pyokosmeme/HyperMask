@@ -410,14 +410,14 @@ async def on_message(message: discord.Message):
             log_error(f"Error getting response: {e}")
             result = "[OOC]: I'm having trouble connecting. Please try again in a moment. [/OOC]"
     
-# Append the assistant's reply to the appropriate separate history.
-reply_entry = {"role": "assistant", "content": result}
-if isinstance(message.channel, discord.DMChannel):
-    user_data[user_id]["dm_conversation_history"].append(reply_entry)
-else:
-    user_data[user_id]["public_conversation_history"].append(reply_entry)
-# Update the legacy combined history as well.
-user_data[user_id]["conversation_history"] = selected_history
+    # Append the assistant's reply to the appropriate separate history.
+    reply_entry = {"role": "assistant", "content": result}
+    if isinstance(message.channel, discord.DMChannel):
+        user_data[user_id]["dm_conversation_history"].append(reply_entry)
+    else:
+        user_data[user_id]["public_conversation_history"].append(reply_entry)
+    # Update the legacy combined history as well.
+    user_data[user_id]["conversation_history"] = selected_history
         
 
 
