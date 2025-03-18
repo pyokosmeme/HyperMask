@@ -25,6 +25,10 @@ from memory import maybe_summarize_conversation
 bot_reply_counts = {}
 BOT_REPLY_THRESHOLD = 1  # Adjust threshold as needed.
 
+#Backup of User Data Parameters
+BACKUP_INTERVAL = 60  # Minutes between backups
+last_backup_time = 0
+
 # Async lock for accessing bot_reply_counts.
 bot_reply_lock = asyncio.Lock()
 
@@ -158,29 +162,35 @@ async def load_user_data():
         log_error(f"Failed to load user data: {e}")
         user_data.clear()
 
+# Add this at the top with other globals
+BACKUP_INTERVAL = 60  # Minutes between backups
+last_backup_time = 0
+
 async def save_user_data():
-    global user_data
+    global user_data, last_backup_time
+    current_time = int(time.time())
+    
     try:
-        # First, check if the current file exists and create backup
-        if os.path.exists(USER_DATA_FILE):
-            try:
-                # Read the current file
-                async with aiofiles.open(USER_DATA_FILE, "rb") as current_file:
-                    current_data = await current_file.read()
-                
-                # Write it to the backup location
-                async with aiofiles.open(f"{USER_DATA_FILE}.bak", "wb") as backup_file:
-                    await backup_file.write(current_data)
-                
-                log_info("Created backup of user data")
-            except Exception as backup_e:
-                log_error(f"Failed to create backup: {backup_e}")
+        # Create backup only at certain intervals
+        if current_time - last_backup_time >= BACKUP_INTERVAL * 60:
+            if os.path.exists(USER_DATA_FILE):
+                try:
+                    # Read the current file
+                    async with aiofiles.open(USER_DATA_FILE, "rb") as current_file:
+                        current_data = await current_file.read()
+                    
+                    # Write it to the backup location
+                    async with aiofiles.open(f"{USER_DATA_FILE}.bak", "wb") as backup_file:
+                        await backup_file.write(current_data)
+                    
+                    last_backup_time = current_time
+                    log_info(f"Created backup of user data at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(current_time))}")
+                except Exception as backup_e:
+                    log_error(f"Failed to create backup: {backup_e}")
         
-        # Now save the current data
+        # Always save the current data
         async with aiofiles.open(USER_DATA_FILE, "wb") as f:
             await f.write(pickle.dumps(user_data, protocol=pickle.HIGHEST_PROTOCOL))
-        
-        log_info("User data saved successfully")
     except Exception as e:
         log_error(f"Error saving user data: {e}")
 
