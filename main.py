@@ -140,9 +140,18 @@ async def load_user_data():
         async with aiofiles.open(USER_DATA_FILE, "rb") as f:
             data = await f.read()
             loaded_data = pickle.loads(data)
+            
+            # Clean whitespace from existing data
+            for user_id, user_info in loaded_data.items():
+                for history_key in ['conversation_history', 'dm_conversation_history', 'public_conversation_history']:
+                    if history_key in user_info:
+                        for msg in user_info[history_key]:
+                            if msg.get('role') == 'assistant' and isinstance(msg.get('content'), str):
+                                msg['content'] = msg['content'].strip()
+            
             user_data.clear()
             user_data.update(loaded_data)
-        log_info("User data loaded successfully.")
+        log_info("User data loaded and sanitized successfully.")
     except (pickle.PickleError, EOFError) as e:
         log_error(f"Corrupted user data file: {e}")
         # Try to load from backup if it exists
@@ -369,28 +378,48 @@ async def on_message(message: discord.Message):
     system_text += f"{CORE_PROMPT}\n\nCore Memories:\n{core_mem}"
     if message.author.bot:
         system_text += "\n[IMPORTANT: Keep your ENTIRE response under 40 words TOTAL. Choose ONE style: (1) primarily expressive roleplay (*actions*) with ONE sentence of direct text, OR (2) ONE brief roleplay action followed by your text response. Maintain your character voice while being extremely concise. Your entire response should fit in 3-4 short lines maximum.]"        
-        max_tokens = 150 
+        max_tokens = 150
     else:
-        max_tokens=1250
+        max_tokens = 1250
     model_to_use = PREMIUM_MODEL if user_data[user_id].get("premium", False) else DEFAULT_MODEL
 
     async with message.channel.typing():
-        response = await call_claude(
-            user_id=user_id,
-            user_dict=user_data,
-            model=model_to_use,
-            system_prompt=system_text,
-            user_content=None,
-            temperature=1.0,
-            max_tokens=max_tokens,
-            verbose=False
-        )
-        # For bot messages, calculate a delay proportional to the length of the reply.
-        # Default is 5 ms per character.
-        if message.author.bot:
-            delay_time = len(message.content)*0.05
-            await asyncio.sleep(delay_time)
-    result = response.choices[0].message["content"]
+        try:
+            response = await call_claude(
+                user_id=user_id,
+                user_dict=user_data,
+                model=model_to_use,
+                system_prompt=system_text,
+                user_content=None,
+                temperature=1.0,
+                max_tokens=max_tokens,
+                verbose=False
+            )
+            # For bot messages, calculate a delay proportional to the length of the reply.
+            # Default is 5 ms per character.
+            if message.author.bot:
+                delay_time = len(message.content)*0.05
+                await asyncio.sleep(delay_time)
+        
+            result = response.choices[0].message["content"].strip()  # Strip whitespace to fix the error
+            # Check for empty results
+            if not result:
+                result = "[OOC]: Error: Empty response. Please try again. [/OOC]"
+            
+        except Exception as e:
+            log_error(f"Error getting response: {e}")
+            result = "[OOC]: I'm having trouble connecting. Please try again in a moment. [/OOC]"
+    
+# Append the assistant's reply to the appropriate separate history.
+reply_entry = {"role": "assistant", "content": result}
+if isinstance(message.channel, discord.DMChannel):
+    user_data[user_id]["dm_conversation_history"].append(reply_entry)
+else:
+    user_data[user_id]["public_conversation_history"].append(reply_entry)
+# Update the legacy combined history as well.
+user_data[user_id]["conversation_history"] = selected_history
+        
+
 
     # Append the assistant's reply to the appropriate separate history.
     reply_entry = {"role": "assistant", "content": result}
