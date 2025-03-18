@@ -371,8 +371,10 @@ async def on_message(message: discord.Message):
         system_text += f"External Context:\n{external_context}\n"
     system_text += f"{CORE_PROMPT}\n\nCore Memories:\n{core_mem}"
     if message.author.bot:
-        system_text += "\n[IMPORTANT: The person you're responding to tends to engage in lengthy exchanges. Keep your response concise (50-100 words maximum). Be direct and to the point while maintaining your character. Minimize questions. A brief, meaningful response will encourage a more balanced conversation.]"
-
+        system_text += "\n[IMPORTANT: Keep your ENTIRE response under 40 words TOTAL. Choose ONE style: (1) primarily expressive roleplay (*actions*) with ONE sentence of direct text, OR (2) ONE brief roleplay action followed by your text response. Maintain your character voice while being extremely concise. Your entire response should fit in 3-4 short lines maximum.]"        
+        max_tokens = 150 
+    else:
+        max_tokens=1250
     model_to_use = PREMIUM_MODEL if user_data[user_id].get("premium", False) else DEFAULT_MODEL
 
     async with message.channel.typing():
