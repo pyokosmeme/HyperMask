@@ -25,7 +25,7 @@ from memory import maybe_summarize_conversation
 
 # Global counter for bot replies.
 bot_reply_counts = {}
-BOT_REPLY_THRESHOLD = 1  # Adjust threshold as needed.
+BOT_REPLY_THRESHOLD = 2  # Adjust threshold as needed.
 
 # Backup of User Data Parameters
 BACKUP_INTERVAL = 60  # Minutes between backups
