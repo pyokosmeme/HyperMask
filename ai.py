@@ -63,7 +63,7 @@ async def call_claude(
         conversation.append({"role": "user", "content": user_content})
 
     # Filter out empty messages
-        conversation = [msg for msg in conversation if msg.get("content", "").strip()]
+    conversation = [msg for msg in conversation if msg.get("content", "").strip()]
 
     # Count prompt tokens.
     prompt_tokens = anthropic_token_count(model, system_prompt, conversation)
