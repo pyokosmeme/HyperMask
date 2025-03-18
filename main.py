@@ -439,8 +439,6 @@ async def on_message(message: discord.Message):
         user_data[user_id]["dm_conversation_history"].append(reply_entry)
     else:
         user_data[user_id]["public_conversation_history"].append(reply_entry)
-    # Update the legacy combined history as well.
-    user_data[user_id]["conversation_history"] = selected_history
 
     await send_large_message(message.channel, f"{message.author.mention} {result}")
     await save_user_data()
