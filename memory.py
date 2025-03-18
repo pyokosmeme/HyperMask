@@ -114,7 +114,10 @@ async def maybe_summarize_conversation(
     else:
         updated_core = raw_output.strip()
 
-    user_data[user_id]["core_memories"] += "\n" + updated_core
+    if ENABLE_CORE_MEMORY_BACKUP:
+        backup_core_memories(user_id, user_data[user_id]["core_memories"])
+
+    user_data[user_id]["core_memories"] = updated_core
 
     # Replace the older conversation with a single summary message.
     user_data[user_id]["conversation_history"] = [
