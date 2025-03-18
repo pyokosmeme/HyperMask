@@ -161,8 +161,26 @@ async def load_user_data():
 async def save_user_data():
     global user_data
     try:
+        # First, check if the current file exists and create backup
+        if os.path.exists(USER_DATA_FILE):
+            try:
+                # Read the current file
+                async with aiofiles.open(USER_DATA_FILE, "rb") as current_file:
+                    current_data = await current_file.read()
+                
+                # Write it to the backup location
+                async with aiofiles.open(f"{USER_DATA_FILE}.bak", "wb") as backup_file:
+                    await backup_file.write(current_data)
+                
+                log_info("Created backup of user data")
+            except Exception as backup_e:
+                log_error(f"Failed to create backup: {backup_e}")
+        
+        # Now save the current data
         async with aiofiles.open(USER_DATA_FILE, "wb") as f:
             await f.write(pickle.dumps(user_data, protocol=pickle.HIGHEST_PROTOCOL))
+        
+        log_info("User data saved successfully")
     except Exception as e:
         log_error(f"Error saving user data: {e}")
 
