@@ -7,6 +7,7 @@ import logging
 import aiofiles
 import re
 import asyncio
+import time
 
 from config import (
     DISCORD_TOKEN,
@@ -385,7 +386,7 @@ async def on_message(message: discord.Message):
             system_prompt=system_text,
             user_content=None,
             temperature=1.0,
-            max_tokens=1250,
+            max_tokens=max_tokens,
             verbose=False
         )
         # For bot messages, calculate a delay proportional to the length of the reply.
