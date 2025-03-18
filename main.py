@@ -23,7 +23,7 @@ from memory import maybe_summarize_conversation
 
 # Global counter for bot replies.
 bot_reply_counts = {}
-BOT_REPLY_THRESHOLD = 3  # Adjust threshold as needed.
+BOT_REPLY_THRESHOLD = 1  # Adjust threshold as needed.
 
 # Async lock for accessing bot_reply_counts.
 bot_reply_lock = asyncio.Lock()
@@ -49,23 +49,21 @@ def build_external_context(channel_id):
     return "\n".join(selected_msgs)
     
 async def get_yes_no_votes(message, external_context="", is_bot=False, vote_count=3):
-    """
-    Ask Claude-3-5-haiku for multiple yes/no votes.
-    Returns a list of votes, each as "yes", "no", or "abstain".
-    """
+    votes = []
+    # Define the prompt first
     bot_name = DEFAULT_NAME  # from config
     penalty_text = ""
     if is_bot:
         async with bot_reply_lock:
             count = bot_reply_counts.get(message.author.id, 0)
         penalty_text = f" Note: this message is from a bot and you have already received {count} replies from me. Bot Reply Threshold is set at {BOT_REPLY_THRESHOLD}"
+    
     prompt = f"""[System Addenum, OOC]: {bot_name}, below is the ongoing conversational context, and above is a message that was sent to an LLM, and 
     you are tasked with something quite simple and straightforward. Given the existing conversational context, respond with a simple yes/no: would you like to reply to this message? 
     Only respond with either yes, or no. No commentary or follow-up questions about the context. 
     Respond with only the word 'Yes' or 'No' without any additional text, explanation, punctuation or commentary. 
-    Just the single word answer alone. {penalty_text}.\n External Context: \n {external_context}"""
-
-    votes = []
+    Just the single word answer alone {penalty_text}.\n External Context: \n {external_context}"""
+    
     dummy_user_dict = {
         "system_vote": {
             "token_usage": 0,
@@ -77,23 +75,28 @@ async def get_yes_no_votes(message, external_context="", is_bot=False, vote_coun
     }
 
     for _ in range(vote_count):
-        response = await call_claude(
-            user_id="system_vote",          # system-level; not tied to a persistent user
-            user_dict=dummy_user_dict,       # dummy conversation history
-            model="claude-3-5-haiku-20241022",
-            system_prompt=prompt,
-            user_content=message.clean_content,  # pass the message as a user message
-            temperature=1.0,
-            max_tokens=5,
-            verbose=False
-        )
-        vote_raw = response.choices[0].message["content"].strip().lower()
-        if "yes" in vote_raw:
-            votes.append("yes")
-        elif "no" in vote_raw:
-            votes.append("no")
-        else:
-            votes.append("abstain")
+        try:
+            response = await call_claude(
+                user_id="system_vote",
+                user_dict=dummy_user_dict,
+                model="claude-3-5-haiku-20241022",
+                system_prompt=prompt,
+                user_content=message.clean_content,
+                temperature=1.0,
+                max_tokens=5,
+                verbose=False
+            )
+            vote_raw = response.choices[0].message["content"].strip().lower()
+            if "yes" in vote_raw:
+                votes.append("yes")
+            elif "no" in vote_raw:
+                votes.append("no")
+            else:
+                votes.append("abstain")
+        except Exception as e:
+            log_error(f"Error getting vote: {e}")
+            votes.append("abstain")  # Default to abstain on error
+            
     return votes
 
 async def should_reply(message):
@@ -135,6 +138,22 @@ async def load_user_data():
             user_data.clear()
             user_data.update(loaded_data)
         log_info("User data loaded successfully.")
+    except (pickle.PickleError, EOFError) as e:
+        log_error(f"Corrupted user data file: {e}")
+        # Try to load from backup if it exists
+        try:
+            if os.path.exists(f"{USER_DATA_FILE}.bak"):
+                async with aiofiles.open(f"{USER_DATA_FILE}.bak", "rb") as f:
+                    data = await f.read()
+                    loaded_data = pickle.loads(data)
+                    user_data.clear()
+                    user_data.update(loaded_data)
+                log_info("User data loaded from backup successfully.")
+            else:
+                user_data.clear()
+        except Exception as backup_e:
+            log_error(f"Failed to load backup: {backup_e}")
+            user_data.clear()
     except Exception as e:
         log_error(f"Failed to load user data: {e}")
         user_data.clear()
@@ -181,7 +200,9 @@ async def on_ready():
             except Exception as e:
                 log_error(f"Failed to update nickname in guild {guild.id}: {e}")
 
-    periodic_save.start()
+    # Only start periodic_save if it's not already running
+    if not periodic_save.is_running():
+        periodic_save.start()
 
 @bot.event
 async def on_member_join(member: discord.Member):
@@ -321,6 +342,8 @@ async def on_message(message: discord.Message):
     if external_context:
         system_text += f"External Context:\n{external_context}\n"
     system_text += f"{CORE_PROMPT}\n\nCore Memories:\n{core_mem}"
+    if message.author.bot:
+        system_text += "\n[IMPORTANT: The person you're responding to tends to engage in lengthy exchanges. Keep your response concise (50-100 words maximum). Be direct and to the point while maintaining your character. Minimize questions. A brief, meaningful response will encourage a more balanced conversation.]"
 
     model_to_use = PREMIUM_MODEL if user_data[user_id].get("premium", False) else DEFAULT_MODEL
 
