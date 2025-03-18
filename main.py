@@ -17,7 +17,7 @@ from config import (
     PREMIUM_MODEL,
     CORE_PROMPT
 )
-from utils import log_info, log_error, send_large_message
+from utils import log_info, log_error, send_large_message, clean_response
 from commands import setup_commands
 from ai import call_claude
 from memory import maybe_summarize_conversation
