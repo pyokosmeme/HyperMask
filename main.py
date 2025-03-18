@@ -382,7 +382,7 @@ async def on_message(message: discord.Message):
     else:
         max_tokens = 1250
     model_to_use = PREMIUM_MODEL if user_data[user_id].get("premium", False) else DEFAULT_MODEL
-
+    
     async with message.channel.typing():
         try:
             response = await call_claude(
