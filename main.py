@@ -22,11 +22,12 @@ from commands import setup_commands
 from ai import call_claude
 from memory import maybe_summarize_conversation
 
+
 # Global counter for bot replies.
 bot_reply_counts = {}
 BOT_REPLY_THRESHOLD = 1  # Adjust threshold as needed.
 
-#Backup of User Data Parameters
+# Backup of User Data Parameters
 BACKUP_INTERVAL = 60  # Minutes between backups
 last_backup_time = 0
 
@@ -47,12 +48,13 @@ def build_external_context(channel_id):
     # Reverse the list so we add most recent messages first.
     for msg in reversed(messages):
         msg_len = len(msg["content"])
-        if total_chars + msg_len > 6000: # ~ 2000 tokens
+        if total_chars + msg_len > 6000:  # ~ 2000 tokens
             break
         selected_msgs.insert(0, f"{msg['author']}: {msg['content']}")
         total_chars += msg_len
     return "\n".join(selected_msgs)
-    
+
+
 async def get_yes_no_votes(message, external_context="", is_bot=False, vote_count=3):
     votes = []
     # Define the prompt first
@@ -61,14 +63,19 @@ async def get_yes_no_votes(message, external_context="", is_bot=False, vote_coun
     if is_bot:
         async with bot_reply_lock:
             count = bot_reply_counts.get(message.author.id, 0)
-        penalty_text = f" Note: this message is from a bot and you have already received {count} replies from me. Bot Reply Threshold is set at {BOT_REPLY_THRESHOLD}"
-    
-    prompt = f"""[System Addenum, OOC]: {bot_name}, below is the ongoing conversational context, and above is a message that was sent to an LLM, and 
+        penalty_text = (
+            f" Note: this message is from a bot and you have already received {count} replies from me. "
+            f"Bot Reply Threshold is set at {BOT_REPLY_THRESHOLD}"
+        )
+
+    prompt = (
+        f"""[System Addenum, OOC]: {bot_name}, below is the ongoing conversational context, and above is a message that was sent to an LLM, and 
     you are tasked with something quite simple and straightforward. Given the existing conversational context, respond with a simple yes/no: would you like to reply to this message? 
     Only respond with either yes, or no. No commentary or follow-up questions about the context. 
     Respond with only the word 'Yes' or 'No' without any additional text, explanation, punctuation or commentary. 
     Just the single word answer alone {penalty_text}.\n External Context: \n {external_context}"""
-    
+    )
+
     dummy_user_dict = {
         "system_vote": {
             "token_usage": 0,
@@ -101,8 +108,9 @@ async def get_yes_no_votes(message, external_context="", is_bot=False, vote_coun
         except Exception as e:
             log_error(f"Error getting vote: {e}")
             votes.append("abstain")  # Default to abstain on error
-            
+
     return votes
+
 
 async def should_reply(message):
     if isinstance(message.channel, discord.DMChannel):
@@ -134,13 +142,14 @@ async def should_reply(message):
 user_data = {}
 USER_DATA_FILE = "user_info.pickle"
 
+
 async def load_user_data():
     global user_data
     try:
         async with aiofiles.open(USER_DATA_FILE, "rb") as f:
             data = await f.read()
             loaded_data = pickle.loads(data)
-            
+
             # Clean whitespace from existing data
             for user_id, user_info in loaded_data.items():
                 for history_key in ['conversation_history', 'dm_conversation_history', 'public_conversation_history']:
@@ -148,7 +157,7 @@ async def load_user_data():
                         for msg in user_info[history_key]:
                             if msg.get('role') == 'assistant' and isinstance(msg.get('content'), str):
                                 msg['content'] = msg['content'].strip()
-            
+
             user_data.clear()
             user_data.update(loaded_data)
         log_info("User data loaded and sanitized successfully.")
@@ -172,10 +181,11 @@ async def load_user_data():
         log_error(f"Failed to load user data: {e}")
         user_data.clear()
 
+
 async def save_user_data():
     global user_data, last_backup_time
     current_time = int(time.time())
-    
+
     try:
         # Create backup only at certain intervals
         if current_time - last_backup_time >= BACKUP_INTERVAL * 60:
@@ -184,26 +194,32 @@ async def save_user_data():
                     # Read the current file
                     async with aiofiles.open(USER_DATA_FILE, "rb") as current_file:
                         current_data = await current_file.read()
-                    
+
                     # Write it to the backup location
                     async with aiofiles.open(f"{USER_DATA_FILE}.bak", "wb") as backup_file:
                         await backup_file.write(current_data)
-                    
+
                     last_backup_time = current_time
                     log_info(f"Created backup of user data at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(current_time))}")
                 except Exception as backup_e:
                     log_error(f"Failed to create backup: {backup_e}")
-        
+
         # Always save the current data
         async with aiofiles.open(USER_DATA_FILE, "wb") as f:
             await f.write(pickle.dumps(user_data, protocol=pickle.HIGHEST_PROTOCOL))
     except Exception as e:
         log_error(f"Error saving user data: {e}")
 
+
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="!", intents=intents, description="A Claude based persona.")
+bot = commands.Bot(
+    command_prefix="!",
+    intents=intents,
+    description="A Claude based persona."
+)
 
 setup_commands(bot, user_data)
+
 
 @bot.event
 async def on_ready():
@@ -238,6 +254,7 @@ async def on_ready():
     if not periodic_save.is_running():
         periodic_save.start()
 
+
 @bot.event
 async def on_member_join(member: discord.Member):
     user_id = str(member.id)
@@ -250,9 +267,11 @@ async def on_member_join(member: discord.Member):
         }
     await save_user_data()
 
+
 @bot.event
 async def on_member_update(before: discord.Member, after: discord.Member):
     await save_user_data()
+
 
 @bot.event
 async def on_message(message: discord.Message):
@@ -377,12 +396,16 @@ async def on_message(message: discord.Message):
         system_text += f"External Context:\n{external_context}\n"
     system_text += f"{CORE_PROMPT}\n\nCore Memories:\n{core_mem}"
     if message.author.bot:
-        system_text += "\n[IMPORTANT: Keep your ENTIRE response under 40 words TOTAL. Choose ONE style: (1) primarily expressive roleplay (*actions*) with ONE sentence of direct text, OR (2) ONE brief roleplay action followed by your text response. Maintain your character voice while being extremely concise. Your entire response should fit in 3-4 short lines maximum.]"        
+        system_text += (
+            "\n[IMPORTANT: Keep your ENTIRE response under 40 words TOTAL. Choose ONE style: (1) primarily expressive roleplay (*actions*) "
+            "with ONE sentence of direct text, OR (2) ONE brief roleplay action followed by your text response. "
+            "Maintain your character voice while being extremely concise. Your entire response should fit in 3-4 short lines maximum.]"
+        )
         max_tokens = 150
     else:
         max_tokens = 1250
     model_to_use = PREMIUM_MODEL if user_data[user_id].get("premium", False) else DEFAULT_MODEL
-    
+
     async with message.channel.typing():
         try:
             response = await call_claude(
@@ -398,18 +421,18 @@ async def on_message(message: discord.Message):
             # For bot messages, calculate a delay proportional to the length of the reply.
             # Default is 5 ms per character.
             if message.author.bot:
-                delay_time = len(message.content)*0.05
+                delay_time = len(message.content) * 0.05
                 await asyncio.sleep(delay_time)
-        
+
             result = response.choices[0].message["content"].strip()  # Strip whitespace to fix the error
             # Check for empty results
             if not result:
                 result = "[OOC]: Error: Empty response. Please try again. [/OOC]"
-            
+
         except Exception as e:
             log_error(f"Error getting response: {e}")
-            result = "[OOC]: I'm having trouble connecting. Please try again in a moment. [/OOC]"
-    
+            result = "[OOC]: I'm having trouble connecting. Please try again in a moment."
+
     # Append the assistant's reply to the appropriate separate history.
     reply_entry = {"role": "assistant", "content": result}
     if isinstance(message.channel, discord.DMChannel):
@@ -418,8 +441,6 @@ async def on_message(message: discord.Message):
         user_data[user_id]["public_conversation_history"].append(reply_entry)
     # Update the legacy combined history as well.
     user_data[user_id]["conversation_history"] = selected_history
-        
-
 
     # Append the assistant's reply to the appropriate separate history.
     reply_entry = {"role": "assistant", "content": result}
@@ -439,8 +460,10 @@ async def on_message(message: discord.Message):
 async def periodic_save():
     await save_user_data()
 
+
 @periodic_save.before_loop
 async def before_periodic_save():
     await bot.wait_until_ready()
+
 
 bot.run(DISCORD_TOKEN)
