@@ -65,6 +65,13 @@ async def call_claude(
     # Filter out empty messages
     conversation = [msg for msg in conversation if msg.get("content", "").strip()]
 
+    # IMPORTANT: Make sure no message is being truncated accidentally
+    # This is just a debug check - can be removed after confirming it's not the issue
+    for i, msg in enumerate(conversation):
+        if len(msg.get("content", "")) > 100:  # Check messages of reasonable length
+            if verbose:
+                log_error(f"DEBUG - Message {i} content: {msg['content'][:50]}...{msg['content'][-50:]}")
+
     # Count prompt tokens.
     prompt_tokens = anthropic_token_count(model, system_prompt, conversation)
 
