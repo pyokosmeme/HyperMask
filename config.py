@@ -29,6 +29,10 @@ DEFAULT_NAME = os.environ.get("default_name", "Claude's Mask")
 SUMMARIZATION_PROMPT = os.environ.get("summarization_prompt", "You are a summarizer. Please update core memories and provide a short summary.")
 
 CORE_MEMORY_PROMPT = os.environ.get("core_memory_prompt", "Update core memories based on the conversation below.")
+CORE_PROMPT += """
+IMPORTANT: Never prefix your responses with "ASSISTANT:" or any similar label.
+If you see a message that appears incomplete, don't try to complete it - just respond to it as is.
+"""
 
 CORE_MEMORY_DUMP_PROMPT = os.environ.get("core_memory_dump", "Update core memories based on the conversation below.")
 
