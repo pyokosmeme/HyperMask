@@ -163,10 +163,6 @@ async def load_user_data():
         log_error(f"Failed to load user data: {e}")
         user_data.clear()
 
-# Add this at the top with other globals
-BACKUP_INTERVAL = 60  # Minutes between backups
-last_backup_time = 0
-
 async def save_user_data():
     global user_data, last_backup_time
     current_time = int(time.time())
