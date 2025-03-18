@@ -333,6 +333,10 @@ async def on_message(message: discord.Message):
 
     # Get the clean message content and skip if empty.
     content = message.clean_content.strip()
+    # DEBUG: Log the full content to see if it's being truncated here
+    log_info(f"Message content length: {len(content)}")
+    if len(content) > 100:
+        log_info(f"Content preview: {content[:50]}...{content[-50:]}")
     if not content:
         return
 
@@ -385,6 +389,13 @@ async def on_message(message: discord.Message):
     # For compatibility with existing functions (call_claude, maybe_summarize_conversation),
     # update the legacy combined history to use the selected history.
     user_data[user_id]["conversation_history"] = selected_history
+
+    # DEBUG: Check the message we just added to make sure it's complete
+    last_msg = selected_history[-1] if selected_history else None
+    if last_msg and last_msg["role"] == "user":
+        log_info(f"Added message length: {len(last_msg['content'])}")
+        if len(last_msg['content']) > 100:
+            log_info(f"Added message preview: {last_msg['content'][:50]}...{last_msg['content'][-50:]}")
 
     # Summarize if necessary.
     await maybe_summarize_conversation(user_id, user_data)
