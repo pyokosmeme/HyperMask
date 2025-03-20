@@ -24,6 +24,8 @@ The framework is built around four key components:
 4. **Customization Guide**  
    Adapt the framework to various relationship types (romantic, familial, mentorship, adversarial, platonic, professional).
 
+> **Note:** For detailed instructions on creating characters using our template, please refer to our [Character Creation Guideline](./CharacterCreationGuideline.md).
+
 ---
 
 ## New Features & Improvements
