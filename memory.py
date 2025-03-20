@@ -12,6 +12,7 @@ from config import (
 )
 from token_utils import anthropic_token_count
 from ai import call_claude
+from utils import log_error, log_info
 
 def estimate_tokens(text: str) -> int:
     """Estimate token count by assuming one token is roughly 4 characters."""
@@ -20,13 +21,11 @@ def estimate_tokens(text: str) -> int:
 async def maybe_summarize_conversation(
     user_id: str,
     user_data: dict,
-    # These parameters are no longer used because we use estimated token counts.
-    # max_unsummary_messages: int = 10,
-    # token_limit: int = 3000
 ):
     """
     If the user's conversation is too large (by estimated token count),
     call the summarizer to update core memories and replace older messages with a summary.
+    Preserves the most recent exchange to maintain conversation flow.
     """
     if user_id not in user_data:
         user_data[user_id] = {
@@ -40,6 +39,25 @@ async def maybe_summarize_conversation(
     if not conversation:
         return
 
+    # Save the most recent exchange (up to 2 messages)
+    recent_messages = []
+    if len(conversation) >= 1:
+        recent_messages.append(conversation[-1])
+        
+    if len(conversation) >= 2:
+        recent_messages.insert(0, conversation[-2])
+    
+    # Check if we have a proper exchange (bot response + user message)
+    has_proper_exchange = (len(recent_messages) == 2 and 
+                          recent_messages[0]["role"] == "assistant" and 
+                          recent_messages[1]["role"] == "user")
+    
+    # If we don't have a proper exchange, adjust accordingly
+    if not has_proper_exchange and len(recent_messages) > 0:
+        # If we only have one message and it's from the user, that's fine
+        # Otherwise, we'll just use the most recent message regardless of role
+        pass
+
     premium = user_data[user_id].get("premium", False)
     model_to_use = PREMIUM_MODEL if premium else DEFAULT_MODEL
 
@@ -47,7 +65,7 @@ async def maybe_summarize_conversation(
     conversation_text = "\n".join(f"{msg['role'].upper()}: {msg['content']}" for msg in conversation)
     estimated_conv_tokens = estimate_tokens(conversation_text)
 
-    # If the estimated token count of the conversation is less than 7,500, do nothing.
+    # If the estimated token count of the conversation is less than our threshold, do nothing.
     if estimated_conv_tokens < 25000:
         return
 
@@ -79,6 +97,7 @@ async def maybe_summarize_conversation(
 
     # Backup the conversation.
     backup_convo = conversation[:]
+    
     # Replace conversation_history with a single summarization request.
     user_data[user_id]["conversation_history"] = [
         {"role": "user", "content": summarization_request}
@@ -114,12 +133,34 @@ async def maybe_summarize_conversation(
     else:
         updated_core = raw_output.strip()
 
+    # Backup core memories before replacing
     if ENABLE_CORE_MEMORY_BACKUP:
-        backup_core_memories(user_id, user_data[user_id]["core_memories"])
+        try:
+            backup_dir = os.path.join(CORE_MEMORY_PICKLE_DIR, "backups")
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            timestamp = int(time.time())
+            backup_filename = os.path.join(
+                backup_dir,
+                f"{user_id}_core_memories_{timestamp}.txt"
+            )
+            
+            with open(backup_filename, "w", encoding="utf-8") as f:
+                f.write(old_core)
+        except Exception as e:
+            log_error(f"Failed to backup core memories: {e}")
 
+    # Replace instead of append
     user_data[user_id]["core_memories"] = updated_core
 
-    # Replace the older conversation with a single summary message.
+    # Start with a summary message
     user_data[user_id]["conversation_history"] = [
         {"role": "assistant", "content": f"(Summary) {short_summary}"}
     ]
+    
+    # Restore the recent exchange to maintain continuity
+    # This ensures Claude can respond coherently to the last user message
+    user_data[user_id]["conversation_history"].extend(recent_messages)
+    
+    # Log what happened
+    log_info(f"Summarized conversation for user {user_id}, kept {len(recent_messages)} recent messages.")
