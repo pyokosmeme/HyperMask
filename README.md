@@ -78,11 +78,7 @@ The repository includes an example SFW persona "Nyx Void" (aka 'V0id'), a rogue 
 - Technical and digital-themed language patterns
 - Visual description and personality implementation
 
-You can find Nyx's configuration in the `/characters/nyx/` folder:
-- `nyx_core_prompt.txt` - Main character definition
-- `nyx_summarization_prompt.txt` - Conversation summarization in character voice
-- `nyx_core_memory_prompt.txt` - Quick memory updates
-- `nyx_core_memory_dump.txt` - Comprehensive memory format
+You can find Nyx's configuration in the `/characters/nyx/` folder (character.env)
 
 Use this as a template for creating your own characters with unique voices and traits.
 
@@ -215,10 +211,10 @@ description="A brief description of your character"
 log_channel=your_log_channel_id
 
 # Character prompts (or file paths to prompts)
-core_prompt_file="characters/your_character/core_prompt.txt"
-summarization_prompt_file="characters/your_character/summarization_prompt.txt"
-core_memory_prompt_file="characters/your_character/core_memory_prompt.txt"
-core_memory_dump_file="characters/your_character/core_memory_dump.txt"
+core_prompt_file="[Core prompt here defining character]"
+summarization_prompt_file="[prompt directing summarization activities]"
+core_memory_prompt_file="[prompt here for crafting core memories of character]"
+core_memory_dump_file="[prompt for the memory dump functions]"
 ```
 
 3. Create a character folder with prompt text files for your character's persona and memory system. You can use the provided Nyx or Theia examples as templates.
