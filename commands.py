@@ -65,19 +65,33 @@ class RerollView(View):
 
     @discord.ui.button(label="Redo", style=discord.ButtonStyle.primary, emoji="🎲")
     async def redo_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Disable current view's buttons.
+        # Disable current view's buttons
         for child in self.children:
             child.disabled = True
         try:
             await self.original_message.edit(view=self)
         except discord.NotFound:
-            pass
+            await interaction.response.send_message("The original message was deleted. Please try again.",
+                                                    ephemeral=True)
+            return
+        except discord.HTTPException as e:
+            log_error(f"Error updating message: {e}")
+            await interaction.response.send_message("Failed to update the message. Please try again.", ephemeral=True)
+            return
 
-        # Re-run the reroll callback.
-        new_result = await self.reroll_callback(self.user_id, self.system_text, self.model, self.temp_user_data)
-        self.result = new_result
+        # Add a deferred response while we wait for the reroll
+        await interaction.response.defer(ephemeral=True)
 
-        # Create a new view instance with fresh buttons.
+        # Re-run the reroll callback
+        try:
+            new_result = await self.reroll_callback(self.user_id, self.system_text, self.model, self.temp_user_data)
+            self.result = new_result
+        except Exception as e:
+            log_error(f"Error during reroll: {e}")
+            await interaction.followup.send("An error occurred during reroll. Please try again.", ephemeral=True)
+            return
+
+        # Create a new view instance with fresh buttons
         new_view = RerollView(
             result=new_result,
             user_id=self.user_id,
@@ -87,13 +101,88 @@ class RerollView(View):
             reroll_callback=self.reroll_callback,
             original_message=self.original_message
         )
-        # Disable previous views for this user.
+
+        # Disable previous views for this user
         disable_previous_views(self.user_id)
         active_reroll_views.setdefault(self.user_id, []).append(new_view)
-        # Edit the original ephemeral message with the new result and view.
-        await self.original_message.edit(content=new_result, view=new_view)
+
+        # Edit the original ephemeral message with the new result and view
+        try:
+            await self.original_message.edit(content=new_result, view=new_view)
+            await interaction.followup.send("Reroll complete!", ephemeral=True)
+        except discord.HTTPException as e:
+            log_error(f"Error updating message with reroll: {e}")
+            await interaction.followup.send("Failed to update the message with the new response. Please try again.",
+                                            ephemeral=True)
+
+
 
 def setup_commands(bot: commands.Bot, user_data: dict):
+    
+    @bot.tree.command(name="forget", description="Reset your conversation history with the bot.")
+    async def forget(interaction: discord.Interaction):
+        user_id = str(interaction.user.id)
+        if user_id not in user_data:
+            await interaction.response.send_message("No conversation history found.", ephemeral=True)
+            return
+
+        # Keep core memories but clear conversation history
+        user_data[user_id]["conversation_history"] = []
+        await interaction.response.send_message(
+            "Your conversation history has been reset. Core memories remain intact.", ephemeral=True)
+
+    @bot.tree.command(name="remember", description="Add a custom memory to the bot's knowledge about you.")
+    @app_commands.describe(memory="The memory you want to add")
+    async def remember(interaction: discord.Interaction, memory: str):
+        user_id = str(interaction.user.id)
+        if user_id not in user_data:
+            user_data[user_id] = {
+                "token_usage": 0,
+                "premium": False,
+                "conversation_history": [],
+                "core_memories": ""
+            }
+
+        # Add the memory to core memories
+        current_memories = user_data[user_id].get("core_memories", "")
+        user_data[user_id]["core_memories"] = f"{current_memories}\n- {memory}"
+
+        await interaction.response.send_message("I'll remember that.", ephemeral=True)
+
+    @bot.tree.command(name="status", description="Check your status with the bot.")
+    async def status(interaction: discord.Interaction):
+        user_id = str(interaction.user.id)
+        if user_id not in user_data:
+            await interaction.response.send_message("No data found for you.", ephemeral=True)
+            return
+
+        token_usage = user_data[user_id].get("token_usage", 0)
+        premium_status = "Premium" if user_data[user_id].get("premium", False) else "Standard"
+        conversation_length = len(user_data[user_id].get("conversation_history", []))
+
+        await interaction.response.send_message(
+            f"Status:\n"
+            f"- Plan: {premium_status}\n"
+            f"- Token usage: {token_usage:,} tokens\n"
+            f"- Conversation length: {conversation_length} messages\n"
+            f"- Core memories: {len(user_data[user_id].get('core_memories', '').split('\\n'))} entries",
+            ephemeral=True
+        )
+
+    @bot.tree.command(name="help", description="Get help with bot commands.")
+    async def help_command(interaction: discord.Interaction):
+        commands_list = [
+            ("forget", "Reset your conversation history"),
+            ("remember", "Add a custom memory"),
+            ("reroll", "Get a different response to your last message"),
+            ("status", "Check your usage statistics"),
+            ("debug", "Toggle verbose logging or view conversation"),
+            ("help", "Show this help message")
+        ]
+
+        help_text = "Available Commands:\n" + "\n".join([f"/{cmd} - {desc}" for cmd, desc in commands_list])
+
+        await interaction.response.send_message(help_text, ephemeral=True)
 
     @bot.tree.command(name="debug", description="Toggle verbose logging and/or show the conversation.")
     @app_commands.describe(action="What do you want to do? 'toggle' verbose logging, 'show' conversation, or 'both'?")
