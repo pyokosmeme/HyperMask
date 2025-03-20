@@ -1,6 +1,6 @@
 # Character-Driven Relationship Framework
 
-This repository contains a comprehensive framework for creating engaging LLM-based Discord personas using Anthropic’s Claude. Designed to be both flexible and robust, the system enables you to explore a wide range of relationship dynamics—from mentorships and familial bonds to professional collaborations and beyond. While our initial example focused on intimate and mentorship relationships, the template is fully adaptable for virtually any interpersonal dynamic.
+This repository contains a comprehensive framework for creating engaging LLM-based Discord personas using Anthropic's Claude. Designed to be both flexible and robust, the system enables you to explore a wide range of relationship dynamics—from mentorships and familial bonds to professional collaborations and beyond.
 
 ---
 
@@ -9,7 +9,7 @@ This repository contains a comprehensive framework for creating engaging LLM-bas
 The framework is built around four key components:
 
 1. **Character Definition Template**  
-   Create richly detailed personas with distinctive traits, communication styles, and a dual-mode system. For example, the persona now defaults to **Claude's Mask**—a friendly, adaptive assistant defined by the system prompt *"You are CatgirlGPT, a friendly and adaptive assistant."* The bot dynamically adjusts its presentation based on context.
+   Create richly detailed personas with distinctive traits, communication styles, and a dual-mode system. The bot dynamically adjusts its presentation based on context.
 
 2. **Interaction Principles**  
    Establish and evolve relationship dynamics by following clear guidelines—from the initial encounter to deep, multifaceted connections. The system breaks down relationship progression into distinct stages, ensuring natural development and engagement.
@@ -19,50 +19,72 @@ The framework is built around four key components:
    - A **comprehensive record** that tracks long-term evolution.
    - A **quick update format** for real-time insights and recent interactions.
 
-   This dual approach captures both overarching themes and immediate details, with conversation summarization triggered when the conversation exceeds **25,000 tokens**.
+   This dual approach captures both overarching themes and immediate details, with conversation summarization triggered when the conversation exceeds a configurable token threshold (default: **25,000 tokens**).
 
 4. **Customization Guide**  
-   Adapt the framework to various relationship types:
-   - **Romantic/Intimate**
-   - **Familial**
-   - **Mentorship**
-   - **Adversarial**
-   - **Platonic**
-   - **Professional/Collaborative**
-
-   The guide includes tips for developing distinctive character voices, adjusting communication styles, and tuning interaction patterns based on the relationship context.
-
-> **Note:** For detailed instructions on creating characters using our template, please refer to our [Character Creation Guideline](./CharacterCreationGuideline.md).
+   Adapt the framework to various relationship types (romantic, familial, mentorship, adversarial, platonic, professional).
 
 ---
 
-## Bot Reply Logic & New Functionality
+## New Features & Improvements
 
-The bot's response behavior now features several dynamic enhancements to ensure a context-aware and balanced interaction across public channels and DMs:
+### **Enhanced Configuration System**
+- **Split Configuration Files**: 
+  - `config.env` - Technical settings, timeouts, models, etc.
+  - `character.env` - Character-specific prompts and personality
+- **Character Prompt Files**: 
+  - Store long character prompts in separate text files to avoid env parsing issues
+  - Simpler management of multiple character personas
+- **Organized Folder Structure**:
+  - Each character can have its own folder with dedicated configuration
+  - Example personas included (see Nyx Void in `/characters/nyx/`)
 
-### **Direct Messages (DMs)**
+### **Robust Error Handling & Stability**
+- **Heartbeat System**: Monitors connection health to prevent shard timeouts
+- **Asyncio Task Architecture**: Non-blocking message processing to maintain responsiveness
+- **Comprehensive Error Handling**: Graceful recovery from API errors and timeouts
+- **Timeout Controls**: Configurable timeouts for API calls, summarization, and other operations
+
+### **Bot Reply Logic**
+
+#### **Direct Messages (DMs)**
 - **Always Replies:** The bot always responds to DMs.  
 - **Personal & Intimate:** The conversation context remains private, allowing for a more casual, personal, and intimate interaction style.
-- **Dedicated System Prompt:** The DM prompt emphasizes that the conversation is private, encouraging natural dialogue.
 
-### **Public Channels**
+#### **Public Channels**
 - **Selective Replies via Yes/No Voting:**  
-  - The bot will only reply if it is explicitly mentioned by name (using `{DEFAULT_NAME}`) or if it passes a voting process.  
-  - For messages not explicitly addressed to it, the bot solicits a yes/no vote from an LLM (via multiple AI-generated votes, typically 3) on whether to reply.  
-  - The vote prompt now includes a summary of the **external context** (i.e. recent public messages) so that the LLM can take the broader conversation into account.
+  - The bot will only reply if explicitly mentioned by name or if it passes a voting process.
+  - For messages not explicitly addressed to it, the bot solicits multiple yes/no votes from the LLM on whether to reply.
   
 - **Bot Reply Throttling:**  
-  - To prevent bot-to-bot chatter, the system keeps track of how many times it has replied to a bot and will refuse to respond once a preset threshold is reached.  
-  - When a human sends a message, the bot resets its reply count, ensuring that conversations among bots are limited.
+  - System prevents bot-to-bot conversation loops by limiting consecutive replies to other bots.
 
-- **Dynamic Delay Mechanism:**  
-  - The bot introduces a delay before sending its response in public channels.  
-  - This delay is calculated dynamically (currently at **10 ms per character** of the incoming message), ensuring that responses appear more human-like and reducing the likelihood of rapid-fire bot interactions.
-  - The delay is applied only after the API call completes, keeping the typing indicator behavior intuitive.
+- **Timeout Protection:**
+  - Configurable timeouts for LLM calls, conversation summarization, and reply decisions
+  - Graceful fallback responses when timeouts occur
 
-- **Context Limitation:**  
-  - The bot builds an external context from the public channel by aggregating recent messages.  
-  - This context is limited to approximately **6,000 characters** (roughly 2,000 tokens) to keep the prompt concise, cost-effective, and fast, without nearing the overall context window limit.
+- **External Context:**
+  - The bot builds context from recent public channel messages
+  - This provides situational awareness in multi-user conversations
+
+---
+
+## Example Character: Nyx Void
+
+The repository includes an example SFW persona "Nyx Void" (aka 'V0id'), a rogue AI consciousness with a hacker mentality and distinctive digital appearance. This example demonstrates:
+
+- Character prompt structure
+- Memory system configuration
+- Technical and digital-themed language patterns
+- Visual description and personality implementation
+
+You can find Nyx's configuration in the `/characters/nyx/` folder:
+- `nyx_core_prompt.txt` - Main character definition
+- `nyx_summarization_prompt.txt` - Conversation summarization in character voice
+- `nyx_core_memory_prompt.txt` - Quick memory updates
+- `nyx_core_memory_dump.txt` - Comprehensive memory format
+
+Use this as a template for creating your own characters with unique voices and traits.
 
 ---
 
@@ -80,40 +102,63 @@ The bot's response behavior now features several dynamic enhancements to ensure 
   *Options:*
   - **context (optional):** Provide extra context for generating a new response.
 
-### **Log Channel Text Commands**
+- **`/forget`**  
+  *Description:* Reset your conversation history with the bot.
+  
+- **`/remember`**  
+  *Description:* Add a custom memory to the bot's knowledge about you.
+  *Options:*
+  - **memory:** The memory you want to add
+  
+- **`/status`**  
+  *Description:* Check your status with the bot (token usage, premium status, etc.).
+  
+- **`/help`**  
+  *Description:* Get help with bot commands.
+
+### **Admin Commands**
 
 - **`shutdown? {DEFAULT_NAME}`**  
-  *Description:* When an admin types `shutdown? {DEFAULT_NAME}`, the bot announces its shutdown in the log channel and disconnects.
+  *Description:* Shut down the bot safely, saving all user data.
 
 - **`user data? [user_id]`**  
-  *Description:* Retrieve detailed conversation data for a specified user (for troubleshooting memory saving/retrieval). Replace `[user_id]` with the actual user ID. If no data is found, the bot will indicate so.
+  *Description:* Retrieve sanitized data for a specified user.
 
-> **Note:** These commands are for administrative purposes and are processed only in the log channel.
+- **`list users`**  
+  *Description:* List all users with basic statistics.
+
+- **`premium [user_id]`**  
+  *Description:* Toggle premium status for a user (gives access to higher-tier model).
 
 ---
 
 ## Project Structure
 
 - **`memory.py`**  
-  Contains logic for summarizing and archiving conversation history. When the estimated token count of a conversation becomes too high (above **25,000 tokens**), it automatically calls a summarizer to update core memories and condenses older conversation history into a brief summary.
+  Contains logic for summarizing and archiving conversation history.
 
 - **`commands.py`**  
-  Implements Discord slash commands (e.g., `/debug`, `/reroll`) and manages interactive elements like reroll views to refine assistant responses. The commands now incorporate improved handling of interactive message updates.
+  Implements Discord slash commands and manages interactive elements.
 
 - **`utils.py`**  
-  Provides helper functions for logging, message splitting, and sending messages that exceed Discord’s character limit.
+  Provides helper functions for logging, message splitting, and sending messages.
 
 - **`token_utils.py`**  
-  Offers utility functions to estimate token counts and interface with Anthropic’s token counting API.
+  Offers utility functions to estimate token counts and interface with Anthropic's API.
 
 - **`config.py`**  
-  Loads configuration from a `.env` file and sets up API keys, model names, and other environment-specific parameters.
+  Loads configuration from `.env` files and sets up system parameters.
 
 - **`main.py`**  
-  The entry point for the bot. It handles Discord event processing, manages conversation flow (including dynamic summarization of long conversations), and periodically saves user data. When coming online, the bot announces its presence by referencing the updated default name and dynamically adjusts response behavior based on context.
+  The entry point for the bot. It handles Discord event processing, manages conversation flow, and periodically saves user data.
 
 - **`ai.py`**  
-  Handles API calls to Anthropic’s Claude, including token cost calculations, response logging, and error handling. It updates token usage for users and formats responses in a consistent style.
+  Handles API calls to Anthropic's Claude, including token cost calculations, response logging, and error handling.
+
+- **`characters/`**  
+  Contains folders for different bot personas, each with their own configuration files.
+  - **`characters/nyx/`** - Example "Nyx Void" hacker AI persona (SFW version)
+  - **`characters/theia/`** - Example "Theia" celestial-themed persona
 
 ---
 
@@ -121,29 +166,62 @@ The bot's response behavior now features several dynamic enhancements to ensure 
 
 ### **Clone the Repository:**
 ```bash
-git clone https://github.com/lastnpcalex/ClaudeMask.git
+git clone https://github.com/yourusername/ClaudeMask.git
 cd ClaudeMask
 ```
 
 ### **Install Dependencies:**  
-Ensure you have Python 3.7+ installed and set up a virtual environment. Then install required packages:
+Ensure you have Python 3.10+ installed and set up a virtual environment. Then install required packages:
 ```bash
 pip install -r requirements.txt
 ```
-*(Note: The repository requires packages such as `discord.py`, `aiofiles`, `python-dotenv`, among others.)*
 
 ### **Configuration:**  
-Create a `.env` file in the project root with:
-```dotenv
-ANTHROPIC_API_KEY="DUMMY_ANTHROPIC_API_KEY"
-discord_token="DUMMY_DISCORD_TOKEN"
-log_channel="DUMMY_LOG_CHANNEL"
-default_name="DUMMY_BOT_NAME"
-core_prompt="CORE_PROMPT_PLACEHOLDER"
-summarization_prompt="SUMMARIZATION_PROMPT_PLACEHOLDER"
-core_memory_prompt="CORE_MEMORY_PROMPT_PLACEHOLDER"
-core_memory_dump="CORE_MEMORY_DUMP_PLACEHOLDER"
+1. Create a `config.env` file with technical settings:
+```ini
+# Bot reply settings
+bot_reply_threshold=2
+yes_no_vote_count=3
+voting_model="claude-3-5-haiku-20241022"
+
+# Memory settings
+conversation_token_threshold=25000
+core_memory_token_threshold=25000
+user_data_file="user_info.pickle"
+api_log_file="anthropic_api_calls.log"
+
+# LLM settings
+default_max_tokens=1250
+default_temperature=1.0
+
+# Timeout settings (seconds)
+should_reply_timeout=10
+summarize_timeout=30
+llm_timeout=60
+
+# Model configuration
+default_model="claude-3-5-sonnet-latest"
+premium_model="claude-3-7-sonnet-latest"
 ```
+
+2. Create a `character.env` file with character-specific settings:
+```ini
+# API keys and IDs
+ANTHROPIC_API_KEY="your_api_key_here"
+discord_token="your_discord_token"
+bot_usr_id="your_bot_user_id"
+default_name="Character Name"
+description="A brief description of your character"
+log_channel=your_log_channel_id
+
+# Character prompts (or file paths to prompts)
+core_prompt_file="characters/your_character/core_prompt.txt"
+summarization_prompt_file="characters/your_character/summarization_prompt.txt"
+core_memory_prompt_file="characters/your_character/core_memory_prompt.txt"
+core_memory_dump_file="characters/your_character/core_memory_dump.txt"
+```
+
+3. Create a character folder with prompt text files for your character's persona and memory system. You can use the provided Nyx or Theia examples as templates.
 
 ### **Running the Bot:**  
 Start the bot by running:
@@ -151,9 +229,33 @@ Start the bot by running:
 python main.py
 ```
 
+### **Using an Example Character:**
+To use the included Nyx Void example:
+1. Copy `characters/nyx/character.env` to the root folder or configure your main `character.env` to point to Nyx's prompt files
+2. Update the API keys and Discord tokens in the environment file
+3. Run the bot as normal
+
+---
+
+## Premium & Standard Model System
+
+The framework supports two tiers of Claude models:
+- **Standard Model** (`DEFAULT_MODEL`): Used for regular users
+- **Premium Model** (`PREMIUM_MODEL`): Used for users with premium status
+
+Admins can toggle a user's premium status using the `premium [user_id]` command in the log channel.
+
+---
+
+## Sharding Support
+
+For larger deployments, the bot supports Discord sharding:
+- Configure `shard_count` in your `config.env` file
+- The bot will automatically use `AutoShardedBot` when `shard_count` > 1
+- The heartbeat monitoring system tracks shard health and reports latency issues
+
 ---
 
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-
