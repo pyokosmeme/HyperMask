@@ -159,13 +159,13 @@ def setup_commands(bot: commands.Bot, user_data: dict):
         token_usage = user_data[user_id].get("token_usage", 0)
         premium_status = "Premium" if user_data[user_id].get("premium", False) else "Standard"
         conversation_length = len(user_data[user_id].get("conversation_history", []))
-
+        newline='\n'
         await interaction.response.send_message(
             f"Status:\n"
             f"- Plan: {premium_status}\n"
             f"- Token usage: {token_usage:,} tokens\n"
             f"- Conversation length: {conversation_length} messages\n"
-            f"- Core memories: {len(user_data[user_id].get('core_memories', '').split('\\n'))} entries",
+            f"- Core memories: {len(user_data[user_id].get('core_memories', '').split(newline))} entries",
             ephemeral=True
         )
 
