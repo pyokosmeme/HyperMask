@@ -24,6 +24,13 @@ PREMIUM_MODEL = os.environ.get("premium_model", "claude-3-7-sonnet-latest")
 COST_PER_TOKEN_HAIKU = float(os.environ.get("cost_per_token_haiku", "0.0000008"))
 COST_PER_TOKEN_SONNET = float(os.environ.get("cost_per_token_sonnet", "0.000003"))
 
+
+# Typing speed settings
+TYPING_SPEED_CPM = int(os.environ.get("typing_speed_cpm", "250"))  # Characters per minute
+MIN_TYPING_TIME = float(os.environ.get("min_typing_time", "2.0"))  # Minimum seconds
+MAX_TYPING_TIME = float(os.environ.get("max_typing_time", "60.0"))  # Maximum seconds
+TYPING_VARIANCE = float(os.environ.get("typing_variance", "0.2"))  # ±20% random variance
+
 # Character configuration
 DEFAULT_NAME = os.environ.get("default_name", "Assistant")
 CORE_PROMPT = os.environ.get("core_prompt", "You are a helpful AI assistant.")
