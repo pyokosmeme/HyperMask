@@ -150,6 +150,44 @@ async def save_user_data():
 
 setup_commands(bot, user_data)
 
+
+# Helper function for extended typing
+async def extended_typing(channel, duration):
+    """
+    Keep the typing indicator active for a specified duration.
+    Discord typing indicator expires after ~10 seconds, so we refresh it.
+    """
+    refresh_interval = 5.0  # Refresh every 5 seconds
+    end_time = time.time() + duration
+    
+    while time.time() < end_time:
+        # Start typing
+        async with channel.typing():
+            # Sleep for either refresh_interval or the remaining time, whichever is shorter
+            remaining = end_time - time.time()
+            await asyncio.sleep(min(refresh_interval, max(0.1, remaining)))
+
+# Calculate realistic typing time based on response length
+def calculate_typing_time(response_text):
+    # Number of characters in the response
+    char_count = len(response_text)
+    
+    # Calculate time based on typing speed (chars per minute)
+    # Convert to seconds: (chars / chars_per_minute) * 60 seconds
+    base_time = (char_count / TYPING_SPEED_CPM) * 60
+    
+    # Add some natural variation (±20% by default)
+    variation = random.uniform(1 - TYPING_VARIANCE, 1 + TYPING_VARIANCE)
+    typing_time = base_time * variation
+    
+    # Ensure time is within defined bounds
+    typing_time = min(max(typing_time, MIN_TYPING_TIME), MAX_TYPING_TIME)
+    
+    if VERBOSE_LOGGING:
+        log_info(f"Calculated typing time: {typing_time:.2f}s for {char_count} chars")
+        
+    return typing_time
+
 # admin command processing
 async def process_admin_commands(message: discord.Message):
     """
@@ -295,19 +333,19 @@ async def process_user_message(message, content):
             "conversation_history": [],
             "core_memories": ""
         }
-
+    
     # Use a timeout for the summarization to prevent blocking
     try:
         await asyncio.wait_for(
             maybe_summarize_conversation(user_id, user_data),
-            timeout=float(os.environ.get("summarize_timeout", "30"))
+            timeout=SUMMARIZE_TIMEOUT
         )
     except asyncio.TimeoutError:
         log_error(f"Summarization timed out for user {user_id}")
-
+    
     # Append the user message to the conversation history
     user_data[user_id]["conversation_history"].append({"role": "user", "content": content})
-
+    
     # Build the system prompt.
     core_mem = user_data[user_id].get("core_memories", "")
     if isinstance(message.channel, discord.DMChannel):
@@ -322,17 +360,19 @@ async def process_user_message(message, content):
             if msg["content"]:
                 context_lines.append(f"{msg['author']}: {msg['content']}")
         external_context = "\n".join(context_lines)
-
+    
     system_text = f"{extra_context}\n"
     if external_context:
         system_text += f"External Context:\n{external_context}\n"
     system_text += f"{CORE_PROMPT}\n\nCore Memories:\n{core_mem}"
-
+    
     # Choose the appropriate model.
     model_to_use = PREMIUM_MODEL if user_data[user_id].get("premium", False) else DEFAULT_MODEL
-
-    # Add timeout for the LLM call
+    
+    # Make API call with typing indicator
+    typing_task = None
     try:
+        # First, make the API call with typing indicator
         async with message.channel.typing():
             response = await asyncio.wait_for(
                 call_claude(
@@ -345,48 +385,65 @@ async def process_user_message(message, content):
                     max_tokens=DEFAULT_MAX_TOKENS,
                     verbose=False
                 ),
-                timeout=float(os.environ.get("llm_timeout", "60"))  # 60 second timeout for LLM call
+                timeout=LLM_TIMEOUT
             )
+        
         result = response.choices[0].message["content"]
+        
+        # Append the assistant's reply to the conversation history
+        user_data[user_id]["conversation_history"].append({"role": "assistant", "content": result})
+        
+        # Calculate realistic typing time based on response length (only in public channels)
+        if not isinstance(message.channel, discord.DMChannel):
+            typing_time = calculate_typing_time(result)
+            
+            # Start extended typing in background
+            typing_task = asyncio.create_task(
+                extended_typing(message.channel, typing_time)
+            )
+            
+            # Wait for the typing time to elapse
+            await asyncio.sleep(typing_time)
+        
+        # Send response with error handling
+        try:
+            await send_large_message(message.channel, f"{message.author.mention} {result}")
+        except Exception as e:
+            log_error(f"Error sending message: {e}")
+            try:
+                await message.channel.send("I had trouble sending my complete response. Please try again.")
+            except:
+                pass
+            
     except asyncio.TimeoutError:
         log_error(f"LLM call timed out for user {user_id}")
         result = "I apologize, but I'm having trouble thinking right now. Could you please try again in a moment?"
+        # Append the error message to the conversation history
+        user_data[user_id]["conversation_history"].append({"role": "assistant", "content": result})
+        await message.channel.send(f"{message.author.mention} {result}")
+        
     except Exception as e:
         log_error(f"Error in LLM call: {e}")
         result = "I encountered an unexpected issue. Please try again later."
-
-    # Append the assistant's reply to the conversation history
-    user_data[user_id]["conversation_history"].append({"role": "assistant", "content": result})
-
-    # Add delay before sending response (only in public channels)
-    if not isinstance(message.channel, discord.DMChannel):
-        # Calculate delay based on message length - 10ms per character
-        # with a minimum of 5s and maximum of 75s
-        variation = random.uniform(0.8, 1.2)
-        delay = min(max(variation * len(content) * 0.01, 5), 75)
-        try:
-            await asyncio.sleep(delay)
-        except asyncio.CancelledError:
-            # Handle if task gets cancelled during the sleep
-            log_error("Response delay was cancelled")
-            return
-
-
-    # Send response with error handling
-    try:
-        await send_large_message(message.channel, f"{message.author.mention} {result}")
-    except Exception as e:
-        log_error(f"Error sending message: {e}")
-        try:
-            await message.channel.send("I had trouble sending my complete response. Please try again.")
-        except:
-            pass
-
+        # Append the error message to the conversation history
+        user_data[user_id]["conversation_history"].append({"role": "assistant", "content": result})
+        await message.channel.send(f"{message.author.mention} {result}")
+        
+    finally:
+        # Make sure to clean up the typing task if it's still running
+        if typing_task and not typing_task.done():
+            typing_task.cancel()
+            try:
+                await typing_task
+            except asyncio.CancelledError:
+                pass
+    
     # Save user data with error handling
     try:
         await save_user_data()
     except Exception as e:
         log_error(f"Error saving user data: {e}")
+
 
 
 # Reconnection logic and heartbeat logging
