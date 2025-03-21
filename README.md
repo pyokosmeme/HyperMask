@@ -34,8 +34,7 @@ The framework is built around four key components:
 - **Split Configuration Files**: 
   - `config.env` - Technical settings, timeouts, models, etc.
   - `character.env` - Character-specific prompts and personality
-- **Character Prompt Files**: 
-  - Store long character prompts in separate text files to avoid env parsing issues
+- **Character Prompt Files**:
   - Simpler management of multiple character personas
 - **Organized Folder Structure**:
   - Each character can have its own folder with dedicated configuration
@@ -219,7 +218,7 @@ core_memory_prompt_file="[prompt here for crafting core memories of character]"
 core_memory_dump_file="[prompt for the memory dump functions]"
 ```
 
-3. Create a character folder with prompt text files for your character's persona and memory system. You can use the provided Nyx or Theia examples as templates.
+3. Create a character folder with prompts for your character's persona and memory system. You can use the provided Nyx or Theia examples as templates.
 
 ### **Running the Bot:**  
 Start the bot by running:
