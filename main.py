@@ -23,6 +23,7 @@ from config import (
     LLM_TIMEOUT,
     TYPING_SPEED_CPM,
     MAX_TYPING_TIME,
+    MIN_TYPING_TIME,
     TYPING_VARIANCE
 )
 from utils import log_info, log_error, send_large_message
