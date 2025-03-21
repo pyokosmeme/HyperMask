@@ -229,9 +229,14 @@ async def process_admin_commands(message: discord.Message):
 
     cmd = split[0].lower()
 
-    # Shutdown command now must be: "shutdown? {DEFAULT_NAME}"
-    if cmd == "shutdown?":
-        if len(split) > 1 and split[1].lower() == DEFAULT_NAME.lower():
+    # Shutdown command must be: "shutdown? {DEFAULT_NAME}"
+    content = message.content.strip()
+    if content.lower().startswith("shutdown?"):
+        # Extract everything after "shutdown?" and trim whitespace
+        name_part = content[len("shutdown?"):].strip()
+        
+        # Compare with the bot name (case-insensitive)
+        if name_part.lower() == DEFAULT_NAME.lower():
             await log_channel.send(
                 f"Admin {message.author.name}[id:{message.author.id}] sent shutdown? {DEFAULT_NAME}. Shutting down ({DEFAULT_NAME})..."
             )
