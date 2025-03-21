@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import discord
+import time
 import random
 from discord.ext import commands, tasks
 import pickle
