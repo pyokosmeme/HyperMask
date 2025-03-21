@@ -115,6 +115,146 @@ class RerollView(View):
             await interaction.followup.send("Failed to update the message with the new response. Please try again.",
                                             ephemeral=True)
 
+class ForgetLastView(View):
+    def __init__(self, user_id: str, messages_to_forget: list, user_data: dict, original_message: discord.Message):
+        """
+        View for forgetting the last N messages.
+        
+        :param user_id: The ID of the user.
+        :param messages_to_forget: List of indexes to potentially forget.
+        :param user_data: The global user data dictionary.
+        :param original_message: The ephemeral message this view is attached to.
+        """
+        super().__init__(timeout=120)  # 2 minute timeout
+        self.user_id = user_id
+        self.messages_to_forget = messages_to_forget
+        self.user_data = user_data
+        self.original_message = original_message
+        self.selected_indexes = set()  # Track which messages are selected to forget
+
+    @discord.ui.button(label="Select All", style=discord.ButtonStyle.secondary, emoji="🔠")
+    async def select_all_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Toggle whether all messages are selected
+        if len(self.selected_indexes) == len(self.messages_to_forget):
+            # If all are selected, unselect all
+            self.selected_indexes.clear()
+        else:
+            # Otherwise, select all
+            self.selected_indexes = set(range(len(self.messages_to_forget)))
+        
+        # Update the message to reflect the new selection state
+        await self.update_message(interaction)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, emoji="🔙")
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.original_message.edit(content="Operation cancelled. No messages were forgotten.", view=None)
+        self.stop()
+
+    @discord.ui.button(label="Forget Selected", style=discord.ButtonStyle.danger, emoji="🗑️")
+    async def forget_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        conversation = self.user_data.get(self.user_id, {}).get("conversation_history", [])
+        
+        if not self.selected_indexes:
+            await interaction.response.send_message("No messages selected to forget.", ephemeral=True)
+            return
+            
+        # Get the actual indexes in the conversation history
+        indexes_to_remove = [self.messages_to_forget[i] for i in self.selected_indexes]
+        indexes_to_remove.sort(reverse=True)  # Sort in reverse to remove from the end first
+        
+        # Remove the selected messages
+        for idx in indexes_to_remove:
+            if 0 <= idx < len(conversation):
+                del conversation[idx]
+        
+        # Update the conversation history
+        self.user_data[self.user_id]["conversation_history"] = conversation
+        
+        # Update the message and disable the view
+        await self.original_message.edit(
+            content=f"✅ Successfully removed {len(indexes_to_remove)} messages from your conversation history.", 
+            view=None
+        )
+        self.stop()
+
+    async def update_message(self, interaction: discord.Interaction):
+        """Update the message to show which messages are selected."""
+        conversation = self.user_data.get(self.user_id, {}).get("conversation_history", [])
+        
+        # Build the message content
+        content = "Select messages to forget (click on message numbers to toggle selection):\n\n"
+        
+        for i, msg_idx in enumerate(self.messages_to_forget):
+            if msg_idx < len(conversation):
+                msg = conversation[msg_idx]
+                # Format each message with selection status
+                selected = "✅" if i in self.selected_indexes else "⬜"
+                # Truncate message content if too long
+                msg_content = msg["content"]
+                if len(msg_content) > 100:
+                    msg_content = msg_content[:97] + "..."
+                content += f"**[{selected}] {i+1}.** {msg['role'].upper()}: {msg_content}\n\n"
+        
+        content += "\nClick 'Forget Selected' to remove the selected messages, or 'Cancel' to cancel."
+        
+        await interaction.response.defer()
+        await self.original_message.edit(content=content)
+    
+    @discord.ui.button(label="1", style=discord.ButtonStyle.primary, row=1)
+    async def button_1(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_selection(interaction, 0)
+    
+    @discord.ui.button(label="2", style=discord.ButtonStyle.primary, row=1)
+    async def button_2(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_selection(interaction, 1)
+    
+    @discord.ui.button(label="3", style=discord.ButtonStyle.primary, row=1)
+    async def button_3(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_selection(interaction, 2)
+    
+    @discord.ui.button(label="4", style=discord.ButtonStyle.primary, row=1)
+    async def button_4(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_selection(interaction, 3)
+    
+    @discord.ui.button(label="5", style=discord.ButtonStyle.primary, row=1)
+    async def button_5(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_selection(interaction, 4)
+    
+    @discord.ui.button(label="6", style=discord.ButtonStyle.primary, row=2)
+    async def button_6(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_selection(interaction, 5)
+    
+    @discord.ui.button(label="7", style=discord.ButtonStyle.primary, row=2)
+    async def button_7(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_selection(interaction, 6)
+    
+    @discord.ui.button(label="8", style=discord.ButtonStyle.primary, row=2)
+    async def button_8(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_selection(interaction, 7)
+    
+    @discord.ui.button(label="9", style=discord.ButtonStyle.primary, row=2)
+    async def button_9(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_selection(interaction, 8)
+    
+    @discord.ui.button(label="10", style=discord.ButtonStyle.primary, row=2)
+    async def button_10(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_selection(interaction, 9)
+    
+    async def toggle_selection(self, interaction: discord.Interaction, index: int):
+        """Toggle the selection state of a message."""
+        # Check if the index is valid
+        if index >= len(self.messages_to_forget):
+            await interaction.response.send_message("Invalid selection.", ephemeral=True)
+            return
+            
+        # Toggle selection
+        if index in self.selected_indexes:
+            self.selected_indexes.remove(index)
+        else:
+            self.selected_indexes.add(index)
+            
+        # Update the message
+        await self.update_message(interaction)
 
 
 def setup_commands(bot: commands.Bot, user_data: dict):
@@ -130,6 +270,62 @@ def setup_commands(bot: commands.Bot, user_data: dict):
         user_data[user_id]["conversation_history"] = []
         await interaction.response.send_message(
             "Your conversation history has been reset. Core memories remain intact.", ephemeral=True)
+
+    @bot.tree.command(name="forget_last", description="Forget specific recent messages from your conversation.")
+    @app_commands.describe(count="Number of recent message pairs to show (default: 5)")
+    async def forget_last(interaction: discord.Interaction, count: int = 5):
+        user_id = str(interaction.user.id)
+        if user_id not in user_data:
+            await interaction.response.send_message("No conversation history found.", ephemeral=True)
+            return
+            
+        conversation = user_data[user_id].get("conversation_history", [])
+        if not conversation:
+            await interaction.response.send_message("No conversation history found.", ephemeral=True)
+            return
+            
+        # Limit count to a reasonable number (max 10 for UI buttons)
+        count = min(max(1, count), 10)
+        
+        # Get the last 'count' messages (pairs of user/assistant)
+        total_msgs = len(conversation)
+        start_idx = max(0, total_msgs - (count * 2))
+        
+        # Collect indexes of messages to potentially forget
+        messages_to_forget = list(range(start_idx, total_msgs))
+        
+        # If no messages to forget, return
+        if not messages_to_forget:
+            await interaction.response.send_message("No recent messages found to forget.", ephemeral=True)
+            return
+            
+        # Create initial content
+        content = f"Select messages to forget (click on message numbers to toggle selection):\n\n"
+        
+        for i, msg_idx in enumerate(messages_to_forget[:10]):  # Only show up to 10 messages
+            if msg_idx < len(conversation):
+                msg = conversation[msg_idx]
+                msg_content = msg["content"]
+                if len(msg_content) > 100:
+                    msg_content = msg_content[:97] + "..."
+                content += f"**[⬜] {i+1}.** {msg['role'].upper()}: {msg_content}\n\n"
+        
+        content += "\nClick 'Forget Selected' to remove the selected messages, or 'Cancel' to cancel."
+        
+        # Send ephemeral message with the view
+        await interaction.response.defer(ephemeral=True)
+        ephemeral_msg = await interaction.followup.send(content=content, ephemeral=True)
+        
+        # Create and add the view
+        view = ForgetLastView(
+            user_id=user_id,
+            messages_to_forget=messages_to_forget[:10],  # Only use up to 10 messages
+            user_data=user_data,
+            original_message=ephemeral_msg
+        )
+        
+        # Add the view to the message
+        await ephemeral_msg.edit(view=view)
 
     @bot.tree.command(name="remember", description="Add a custom memory to the bot's knowledge about you.")
     @app_commands.describe(memory="The memory you want to add")
@@ -172,37 +368,17 @@ def setup_commands(bot: commands.Bot, user_data: dict):
     @bot.tree.command(name="help", description="Get help with bot commands.")
     async def help_command(interaction: discord.Interaction):
         commands_list = [
-            ("forget", "Reset your conversation history"),
+            ("forget", "Reset your entire conversation history"),
+            ("forget_last", "Selectively forget recent messages"),
             ("remember", "Add a custom memory"),
             ("reroll", "Get a different response to your last message"),
             ("status", "Check your usage statistics"),
-            ("debug", "Toggle verbose logging or view conversation"),
             ("help", "Show this help message")
         ]
 
         help_text = "Available Commands:\n" + "\n".join([f"/{cmd} - {desc}" for cmd, desc in commands_list])
 
         await interaction.response.send_message(help_text, ephemeral=True)
-
-    @bot.tree.command(name="debug", description="Toggle verbose logging and/or show the conversation.")
-    @app_commands.describe(action="What do you want to do? 'toggle' verbose logging, 'show' conversation, or 'both'?")
-    async def debug(interaction: discord.Interaction, action: str):
-        user_id = str(interaction.user.id)
-        if action.lower() in ["toggle", "both"]:
-            new_status = toggle_verbose()
-            state_text = "enabled" if new_status else "disabled"
-            await interaction.response.send_message(f"Verbose logging {state_text}.", ephemeral=True)
-        if action.lower() in ["show", "both"]:
-            context = user_data.get(user_id, {}).get("conversation_history", [])
-            if not context:
-                await interaction.followup.send("No conversation context available.", ephemeral=True)
-                return
-            context_str = "\n".join(f"{msg['role']}: {msg['content']}" for msg in context)
-            try:
-                await interaction.user.send(f"Full Conversation Context:\n{context_str}")
-                await interaction.followup.send("I've DM'd you the full conversation context.", ephemeral=True)
-            except Exception:
-                await interaction.followup.send("Failed to send DM. Check your DM settings.", ephemeral=True)
 
     @bot.tree.command(name="reroll", description="Reroll the last assistant response with optional additional context.")
     @app_commands.describe(context="Additional context to include (optional).")
