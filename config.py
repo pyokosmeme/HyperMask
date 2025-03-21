@@ -54,6 +54,7 @@ VOTING_MODEL = os.environ.get("voting_model", "claude-3-5-haiku-20241022")
 # File paths
 USER_DATA_FILE = os.environ.get("user_data_file", "user_info.pickle")
 API_LOG_FILE = os.environ.get("api_log_file", "anthropic_api_calls.log")
+VERBOSE_LOGGING = os.environ.get("VERBOSE_LOGGING", False)
 
 # UI settings
 REROLL_TIMEOUT_SECONDS = int(os.environ.get("reroll_timeout_seconds", "60"))
