@@ -358,6 +358,20 @@ async def process_user_message(message, content):
     # Append the assistant's reply to the conversation history
     user_data[user_id]["conversation_history"].append({"role": "assistant", "content": result})
 
+    # Add delay before sending response (only in public channels)
+    if not isinstance(message.channel, discord.DMChannel):
+        # Calculate delay based on message length - 10ms per character
+        # with a minimum of 5s and maximum of 75s
+        variation = random.uniform(0.8, 1.2)
+        delay = min(max(variation * len(content) * 0.01, 5), 75)
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            # Handle if task gets cancelled during the sleep
+            log_error("Response delay was cancelled")
+            return
+
+
     # Send response with error handling
     try:
         await send_large_message(message.channel, f"{message.author.mention} {result}")
