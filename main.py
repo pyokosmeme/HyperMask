@@ -24,8 +24,10 @@ from config import (
     TYPING_SPEED_CPM,
     MAX_TYPING_TIME,
     MIN_TYPING_TIME,
-    TYPING_VARIANCE
+    TYPING_VARIANCE,
+    VERBOSE_LOGGING
 )
+
 from utils import log_info, log_error, send_large_message
 from commands import setup_commands
 from ai import call_claude
