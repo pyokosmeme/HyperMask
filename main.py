@@ -25,7 +25,7 @@ from config import (
     MAX_TYPING_TIME,
     MIN_TYPING_TIME,
     TYPING_VARIANCE,
-    VERBOSE_LOGGING.
+    VERBOSE_LOGGING,
     REPLY_COOLDOWN
 )
 
