@@ -25,7 +25,8 @@ from config import (
     MAX_TYPING_TIME,
     MIN_TYPING_TIME,
     TYPING_VARIANCE,
-    VERBOSE_LOGGING
+    VERBOSE_LOGGING.
+    REPLY_COOLDOWN
 )
 
 from utils import log_info, log_error, send_large_message
@@ -35,6 +36,8 @@ from memory import maybe_summarize_conversation
 
 # Global to prevent errors, log_channel should be set by on_ready
 log_channel = None
+
+last_replied_to = {}  # Dict mapping channel_id -> {bot_id: timestamp}
 
 # Configure Discord client sharding
 shard_count = int(os.environ.get("shard_count", "1"))  # Get from config
@@ -122,6 +125,24 @@ async def should_reply(message):
             if count >= BOT_REPLY_THRESHOLD:
                 return False
 
+   # For bot messages, check if we've replied to this bot recently
+    if message.author.bot:
+        channel_id = str(message.channel.id)
+        author_id = str(message.author.id)
+        current_time = time.time()
+        
+        # Check if we've replied to this bot in this channel recently
+        if channel_id in last_replied_to and author_id in last_replied_to[channel_id]:
+            last_time = last_replied_to[channel_id][author_id]
+            if current_time - last_time < REPLY_COOLDOWN:
+                return False  # Don't reply if we replied recently
+
+        # Check the reply counter
+        async with bot_reply_lock:
+            count = bot_reply_counts.get(message.author.id, 0)
+            if count >= BOT_REPLY_THRESHOLD:
+                return False
+        
     is_bot_message = message.author.bot
     votes = await get_yes_no_votes(message, is_bot=is_bot_message, vote_count=3)
     yes_votes = votes.count("yes")
@@ -398,6 +419,19 @@ async def process_user_message(message, content):
         
         # Append the assistant's reply to the conversation history
         user_data[user_id]["conversation_history"].append({"role": "assistant", "content": result})
+
+        # Record that we replied to this bot if it's a bot message
+        if message.author.bot:
+            channel_id = str(message.channel.id)
+            channel_id = str(message.channel.id)
+            author_id = str(message.author.id)
+        
+            # Initialize channel dict if needed
+            if channel_id not in last_replied_to:
+                last_replied_to[channel_id] = {}
+            
+            # Record the timestamp of this reply
+            last_replied_to[channel_id][author_id] = time.time()
         
         # Calculate realistic typing time based on response length (only in public channels)
         if not isinstance(message.channel, discord.DMChannel):
