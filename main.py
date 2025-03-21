@@ -241,14 +241,11 @@ async def process_message(message: discord.Message):
     try:
         # For non-DM messages, check if we should reply
         if not isinstance(message.channel, discord.DMChannel):
-            if message.author.bot:
-                return  # Skip bot messages as they cause 404 errors
-
             # Use a timeout to limit the time spent checking if we should reply
             try:
                 should_reply_result = await asyncio.wait_for(
                     should_reply(message),
-                    timeout=float(os.environ.get("should_reply_timeout", "10"))
+                    timeout=SHOULD_REPLY_TIMEOUT
                 )
                 if not should_reply_result:
                     return
@@ -261,9 +258,21 @@ async def process_message(message: discord.Message):
         if not content:
             return
 
-        # Bot reply counting logic remains the same...
+        # Bot reply counting logic
+        user_id = str(message.author.id)
+        # If a human sends a message, reset bot reply counts.
+        if not message.author.bot:
+            async with bot_reply_lock:
+                bot_reply_counts.clear()
+        else:
+            # For bot messages, update the counter atomically.
+            async with bot_reply_lock:
+                count = bot_reply_counts.get(message.author.id, 0)
+                if count >= BOT_REPLY_THRESHOLD:
+                    return  # Skip if we've replied too many times to this bot
+                bot_reply_counts[message.author.id] = count + 1
 
-        # Add save handling to ensure we don't lose data
+        # Process the message and generate a response
         try:
             await process_user_message(message, content)
         except Exception as e:
