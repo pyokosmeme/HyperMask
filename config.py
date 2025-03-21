@@ -24,6 +24,14 @@ PREMIUM_MODEL = os.environ.get("premium_model", "claude-3-7-sonnet-latest")
 COST_PER_TOKEN_HAIKU = float(os.environ.get("cost_per_token_haiku", "0.0000008"))
 COST_PER_TOKEN_SONNET = float(os.environ.get("cost_per_token_sonnet", "0.000003"))
 
+
+# Typing speed settings
+TYPING_SPEED_CPM = int(os.environ.get("typing_speed_cpm", "250"))  # Characters per minute
+MIN_TYPING_TIME = float(os.environ.get("min_typing_time", "2.0"))  # Minimum seconds
+MAX_TYPING_TIME = float(os.environ.get("max_typing_time", "60.0"))  # Maximum seconds
+TYPING_VARIANCE = float(os.environ.get("typing_variance", "0.2"))  # ±20% random variance
+REPLY_COOLDOWN = float(os.environ.get("typing_variance", "10.0")) # 10.0 s reply cooldonw for bots
+
 # Character configuration
 DEFAULT_NAME = os.environ.get("default_name", "Assistant")
 CORE_PROMPT = os.environ.get("core_prompt", "You are a helpful AI assistant.")
@@ -47,6 +55,7 @@ VOTING_MODEL = os.environ.get("voting_model", "claude-3-5-haiku-20241022")
 # File paths
 USER_DATA_FILE = os.environ.get("user_data_file", "user_info.pickle")
 API_LOG_FILE = os.environ.get("api_log_file", "anthropic_api_calls.log")
+VERBOSE_LOGGING = os.environ.get("VERBOSE_LOGGING", False)
 
 # UI settings
 REROLL_TIMEOUT_SECONDS = int(os.environ.get("reroll_timeout_seconds", "60"))
