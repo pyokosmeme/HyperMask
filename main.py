@@ -20,7 +20,10 @@ from config import (
     CORE_PROMPT,
     SHOULD_REPLY_TIMEOUT,
     SUMMARIZE_TIMEOUT,
-    LLM_TIMEOUT
+    LLM_TIMEOUT,
+    TYPING_SPEED_CPM,
+    MAX_TYPING_TIME,
+    TYPING_VARIANCE
 )
 from utils import log_info, log_error, send_large_message
 from commands import setup_commands
