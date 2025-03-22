@@ -64,15 +64,40 @@ async def get_yes_no_votes(message, is_bot=False, vote_count=3):
     """
     Ask Claude-3-5-haiku for multiple yes/no votes.
     Returns a list of votes, each as "yes", "no", or "abstain".
+    Logs detailed voting results to both log file and Discord channel.
     """
+    global log_channel  # Ensure we have access to the global log_channel
     bot_name = DEFAULT_NAME  # from config
     penalty_text = ""
+    author_name = message.author.name
+    channel_name = getattr(message.channel, 'name', 'DM')
+    guild_name = getattr(message.guild, 'name', 'DM') if message.guild else 'DM'
+    
+    # Create channel context for logging
+    channel_context_str = f"in #{channel_name}" if not isinstance(message.channel, discord.DMChannel) else "in DM"
+    if hasattr(message.guild, 'name') and message.guild:
+        channel_context_str += f" ({guild_name})"
+    
     if is_bot:
         async with bot_reply_lock:
             count = bot_reply_counts.get(message.author.id, 0)
         penalty_text = f" Note: this message is from a bot and you have already received {count} replies from me."
-    prompt = f"{bot_name}, respond with a simple yes/no: would you like to reply to this message?{penalty_text}"
+    
+    # Create a more detailed prompt
+    prompt = (
+        f"You are {bot_name}. Please respond with a simple yes/no: would you like to reply to this message from "
+        f"{author_name} {channel_context_str}? Consider if the message seems to be directed at you or if "
+        f"it would be natural for you to respond in this conversation.{penalty_text} "
+        f"Respond with ONLY 'yes' or 'no'."
+    )
 
+    # Log that we're starting voting - console log
+    log_info(f"Starting vote for message from {author_name} {channel_context_str}: '{message.clean_content[:50]}...'")
+    
+    # Also send to Discord log channel with forced logging
+    vote_start_msg = f"📊 **Vote Starting** for message from {author_name} {channel_context_str}\nMessage: ```{message.clean_content[:150]}```"
+    await send_to_log_channel(vote_start_msg, force=True)
+    
     votes = []
     dummy_user_dict = {
         "system_vote": {
@@ -84,25 +109,105 @@ async def get_yes_no_votes(message, is_bot=False, vote_count=3):
         }
     }
 
-    for _ in range(vote_count):
-        response = await call_claude(
-            user_id="system_vote",          # system-level; not tied to a persistent user
-            user_dict=dummy_user_dict,       # dummy conversation history
-            model="claude-3-5-haiku-20241022",
-            system_prompt=prompt,
-            user_content=message.clean_content,  # pass the message as a user message
-            temperature=1.0,
-            max_tokens=5,
-            verbose=False
-        )
-        vote_raw = response.choices[0].message["content"].strip().lower()
-        if "yes" in vote_raw:
-            votes.append("yes")
-        elif "no" in vote_raw:
-            votes.append("no")
-        else:
-            votes.append("abstain")
+    vote_details = []
+    for i in range(vote_count):
+        try:
+            response = await call_claude(
+                user_id="system_vote",          # system-level; not tied to a persistent user
+                user_dict=dummy_user_dict,       # dummy conversation history
+                model="claude-3-5-haiku-20241022",
+                system_prompt=prompt,
+                user_content=message.clean_content,  # pass the message as a user message
+                temperature=1.0,
+                max_tokens=5,
+                verbose=False
+            )
+            vote_raw = response.choices[0].message["content"].strip().lower()
+            
+            # Log the raw vote to console
+            log_info(f"Vote {i+1} raw response: '{vote_raw}'")
+            
+            # Determine the vote
+            if "yes" in vote_raw:
+                votes.append("yes")
+                vote_details.append(f"Vote {i+1}: YES (raw: '{vote_raw}')")
+            elif "no" in vote_raw:
+                votes.append("no")
+                vote_details.append(f"Vote {i+1}: NO (raw: '{vote_raw}')")
+            else:
+                votes.append("abstain")
+                vote_details.append(f"Vote {i+1}: ABSTAIN (raw: '{vote_raw}')")
+                
+        except Exception as e:
+            error_msg = f"Error in vote {i+1}: {e}"
+            log_error(error_msg)
+            votes.append("abstain")  # Count errors as abstentions
+            vote_details.append(f"Vote {i+1}: ABSTAIN (error occurred)")
+
+    # Count the votes
+    yes_votes = votes.count("yes")
+    no_votes = votes.count("no")
+    abstain_votes = votes.count("abstain")
+    
+    # Determine the final decision
+    final_decision = yes_votes > no_votes and yes_votes > abstain_votes
+    
+    # Create a log message for the console
+    log_result = (
+        f"Voting results for message from {author_name} {channel_context_str}: "
+        f"Yes: {yes_votes}, No: {no_votes}, Abstain: {abstain_votes}, "
+        f"Decision: {'REPLY' if final_decision else 'IGNORE'}"
+    )
+    log_info(log_result)
+    
+    # Create a detailed Discord log message and send to log channel with forced logging
+    discord_log_msg = (
+        f"📊 **Vote Results**\n"
+        f"Message from: {author_name} {channel_context_str}\n"
+        f"Message: ```{message.clean_content[:150]}...```\n"
+        f"Votes: Yes: {yes_votes}, No: {no_votes}, Abstain: {abstain_votes}\n"
+        f"{'\n'.join(vote_details)}\n"
+        f"**Final Decision: {'✅ REPLY' if final_decision else '❌ IGNORE'}**"
+    )
+    await send_to_log_channel(discord_log_msg, force=True)
+    
     return votes
+
+# Helper function to safely send to log channel
+async def send_to_log_channel(message, level="INFO", force=False):
+    """
+    Sends a message to the log channel, with error handling
+    
+    Args:
+        message: The message to send
+        level: Log level string
+        force: Whether to force sending regardless of VERBOSE_LOGGING
+    """
+    global log_channel
+    
+    # Skip if log_channel is not available
+    if log_channel is None:
+        log_error("Cannot send to log channel: log_channel is None")
+        return
+        
+    # Check if we should log (respecting VERBOSE_LOGGING setting)
+    should_log = force
+    
+    try:
+        # Try to access VERBOSE_LOGGING, but don't crash if not defined
+        import config
+        should_log = should_log or getattr(config, 'VERBOSE_LOGGING', False)
+    except (ImportError, AttributeError):
+        # If we can't access config or VERBOSE_LOGGING, force log if requested
+        pass
+        
+    if should_log:
+        try:
+            # Try to send the message to the log channel
+            await log_channel.send(message)
+        except Exception as e:
+            # Log the error to console
+            log_error(f"Failed to send message to log channel: {e}")
 
 async def should_reply(message):
     """
