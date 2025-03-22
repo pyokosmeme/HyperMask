@@ -440,7 +440,7 @@ async def process_user_message(message, content):
             last_replied_to[channel_id][author_id] = time.time()
         
         # Calculate realistic typing time based on response length (only in public channels)
-        if not isinstance(message.channel, discord.DMChannel):
+        if not isinstance(message.channel, discord.DMChannel) and message.author.bot:
             typing_time = calculate_typing_time(result)
             
             # Start extended typing in background
