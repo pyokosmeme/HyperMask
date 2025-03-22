@@ -27,7 +27,8 @@ from config import (
     MIN_TYPING_TIME,
     TYPING_VARIANCE,
     VERBOSE_LOGGING,
-    REPLY_COOLDOWN
+    REPLY_COOLDOWN,
+    BOT_REPLY_THRESHOLD
 )
 
 from utils import log_info, log_error, send_large_message
