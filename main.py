@@ -231,7 +231,7 @@ async def should_reply(message):
             if count >= BOT_REPLY_THRESHOLD:
                 return False
 
-   # For bot messages, check if we've replied to this bot recently
+    # For bot messages, check if we've replied to this bot recently\
     if message.author.bot:
         channel_id = str(message.channel.id)
         author_id = str(message.author.id)
