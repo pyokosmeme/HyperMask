@@ -51,7 +51,6 @@ else:
 
 # Global counter for bot replies.
 bot_reply_counts = {}
-BOT_REPLY_THRESHOLD = 3  # Adjust threshold as needed.
 
 # Async lock for accessing bot_reply_counts.
 bot_reply_lock = asyncio.Lock()
