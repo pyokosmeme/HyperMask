@@ -116,7 +116,12 @@ async def maybe_summarize_conversation(
 
     user_data[user_id]["core_memories"] += "\n" + updated_core
 
-    # Replace the older conversation with a single summary message.
+    # Determine how many recent messages to keep
+    # This ensures we keep complete exchanges (pairs of user-assistant messages)
+    messages_to_keep = 4  # Keep last 2 exchanges (2 user + 2 assistant messages)
+    recent_messages = conversation[-messages_to_keep:] if len(conversation) >= messages_to_keep else conversation[:]
+
+    # Replace the older conversation with a summary message followed by recent exchanges
     user_data[user_id]["conversation_history"] = [
         {"role": "assistant", "content": f"(Summary) {short_summary}"}
-    ]
+    ] + recent_messages
