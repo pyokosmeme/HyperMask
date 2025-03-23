@@ -1,7 +1,6 @@
 # ai.py
-
-import json
 import time
+import json
 from utils import log_error
 import anthropic
 from config import (
