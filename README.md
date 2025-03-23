@@ -275,7 +275,7 @@ pip install -r requirements.txt
 1. Create a `config.env` file with technical settings:
 ```ini
 # Bot reply settings
-bot_reply_threshold=3
+bot_reply_threshold=1
 yes_no_vote_count=3
 voting_model="claude-3-5-haiku-20241022"
 
